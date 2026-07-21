@@ -1,6 +1,12 @@
 import { Router } from "express";
-import { endInterview, getInterviewById, getInterviewHistory, startInterview, submitAnswer } from "../controllers/interviewControllers.js";
-import { requireAuth } from "../middlewares/authMiddleware.js";
+import {
+  endInterview,
+  getInterviewById,
+  getInterviewHistory,
+  startInterview,
+  submitAnswer,
+} from "../controllers/interviewControllers.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
 
 const router = Router();
 
