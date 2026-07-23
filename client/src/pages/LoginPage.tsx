@@ -31,7 +31,7 @@ export default function LoginPage() {
 
       if (axios.isAxiosError(error)) {
         alert(
-          error.response?.data?.message ?? "Unable to login. Please try again.",
+          error.response?.data?.error ?? "Unable to login. Please try again.",
         );
       } else {
         alert("Something went wrong.");

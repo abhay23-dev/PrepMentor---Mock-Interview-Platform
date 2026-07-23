@@ -31,7 +31,7 @@ export default function SignupPage() {
       });
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.message ?? "Unable to create account.");
+        alert(error.response?.data?.error ?? "Unable to create account.");
       } else {
         alert("Something went wrong.");
       }
