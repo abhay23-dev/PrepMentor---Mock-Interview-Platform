@@ -5,7 +5,9 @@ const connectDB = async () => {
   
   try{
     const mongoDBUri = process.env.MONGODBURI;
-    const connection = await mongoose.connect(mongoDBUri!);
+    const connection = await mongoose.connect(mongoDBUri!, {
+      serverSelectionTimeoutMS: 10000, // wait longer
+    });
     console.log("====================================");
     console.log("MongoDB Connected Successfully");
     console.log(`Database: ${connection.connection.name}`);

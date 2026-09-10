@@ -61,6 +61,11 @@ new Schema<IInterview>(
     default:0
   },
 
+  overallSummary:{
+    type:String,
+    default:""
+  },
+
   startTime:{
     type:Date,
     default:Date.now

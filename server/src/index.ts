@@ -7,6 +7,10 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db";
 
+import dns from "dns";
+
+dns.setDefaultResultOrder("ipv4first");
+
 dotenv.config();
 
 const app: Application = express();

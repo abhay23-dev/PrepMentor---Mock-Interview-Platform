@@ -28,11 +28,8 @@ export interface IInterview extends Document {
 
   userId: Types.ObjectId;
   topic: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  currentDifficulty:
-    "Easy"
-    | "Medium"
-    | "Hard";
+  difficulty: Difficulty;
+  currentDifficulty: Difficulty;
   status:
     "ONGOING"
     | "COMPLETED";
@@ -40,6 +37,7 @@ export interface IInterview extends Document {
   askedQuestions: Types.ObjectId[];
   maxQuestions: number;
   overallScore: number;
+  overallSummary: string;
   startTime: Date;
   endTime?: Date;
 }
@@ -76,4 +74,15 @@ export interface IFeedback extends Document {
   strengths: string[];
   weaknesses: string[];
   improvementAreas: string[];
+}
+
+export interface InterviewResponse {
+  interviewId: Types.ObjectId,
+  topic: string,
+  difficulty: string,
+  maxQuestions: number,
+  question: {
+    questionId: Types.ObjectId,
+    questionText: string,
+  },
 }

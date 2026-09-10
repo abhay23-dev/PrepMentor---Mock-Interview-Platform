@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import { asyncHandler, sendSuccess } from "../utils/responseHelpers.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { Difficulty, Topics } from "../types/index.js";
+import { Difficulty, InterviewResponse, Topics } from "../types/index.js";
 import Question from "../models/Question.js";
 import Interview from "../models/Interview.js";
 import Answer from "../models/Answer.js";
+import { evaluateAnswer, generateOverallSummary } from "../services/aiService.js";
+import { getNextDifficulty } from "../utils/difficultyHelper.js";
 
 export const startInterview = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -34,11 +36,26 @@ export const startInterview = asyncHandler(
         400,
       );
     }
-
+    console.log(topic);
+    console.log(difficulty);
     const questions = await Question.find({
       topic,
-      difficulty,
+      difficulty
     });
+
+    console.log(questions.length);
+    console.log(questions);
+
+    const newQuestion = new Question({
+      topic:"dbms",
+      difficulty:"Easy",
+      questionText:"What is acid?",
+      keywords:["atomicit", "consistency"],
+      questionType: "TECHNICAL"
+    });
+
+    const savedQuestion = await newQuestion.save();
+    console.log(savedQuestion);
 
     if (questions.length === 0) {
       throw new AppError("No questions available.", 404);
@@ -101,24 +118,59 @@ export const submitAnswer = asyncHandler(
       throw new AppError("Question not part of Interview", 400);
     }
 
-    const score = Math.floor(Math.random() * 10) + 1;
-    const answerDocument = await Answer.create({
+    // Real AI evaluation, with a safe neutral fallback if the API call fails
+    // (a transient AI-provider outage shouldn't break the whole interview).
+    let evaluation;
+    try {
+      evaluation = await evaluateAnswer(
+        question.questionText,
+        question.keywords ?? [],
+        answer,
+      );
+    } catch (error) {
+      console.error("AI evaluation failed, using fallback score:", error);
+      evaluation = {
+        score: 5,
+        strengths: [] as string[],
+        weaknesses: [] as string[],
+        suggestions: [] as string[],
+        feedback: "Automated evaluation was unavailable for this answer.",
+      };
+    }
+
+    await Answer.create({
       interviewId,
       questionId,
       transcript: answer,
-      score,
+      score: evaluation.score,
+      strengths: evaluation.strengths,
+      weaknesses: evaluation.weaknesses,
+      suggestions: evaluation.suggestions,
+      aiFeedback: evaluation.feedback,
     });
 
+    // Adaptive difficulty: adjust before picking the next question
+    interview.currentDifficulty = getNextDifficulty(
+      interview.currentDifficulty,
+      evaluation.score,
+    );
+
     interview.questionsAsked += 1;
+
+    // NOTE: status is intentionally left "ONGOING" here even when the max
+    // question count is reached. Finalizing status/overallScore is the
+    // job of endInterview alone — see the comment there for why.
     if (interview.questionsAsked >= interview.maxQuestions) {
-      interview.status = "COMPLETED";
-      interview.endTime = new Date();
       await interview.save();
-      const answerResponse = {
-        score,
+
+      return sendSuccess(res, {
+        score: evaluation.score,
+        feedback: evaluation.feedback,
+        strengths: evaluation.strengths,
+        weaknesses: evaluation.weaknesses,
+        suggestions: evaluation.suggestions,
         completed: true,
-      };
-      return sendSuccess(res, answerResponse, "Interview Completed");
+      }, "Interview Completed");
     }
 
     const availableQuestions = await Question.find({
@@ -129,25 +181,39 @@ export const submitAnswer = asyncHandler(
       },
     });
 
-    if (availableQuestions.length === 0) {
-      throw new AppError("No Questions are available.", 404);
+    // If the new (adapted) difficulty has run out of unused questions,
+    // fall back to the interview's original difficulty rather than failing.
+    const pool =
+      availableQuestions.length > 0
+        ? availableQuestions
+        : await Question.find({
+            topic: interview.topic,
+            difficulty: interview.difficulty,
+            _id: { $nin: interview.askedQuestions },
+          });
+
+    if (pool.length === 0) {
+      throw new AppError("No more questions are available.", 404);
     }
 
-    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-    const nextQuestion = availableQuestions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * pool.length);
+    const nextQuestion = pool[randomIndex];
 
     interview.askedQuestions.push(nextQuestion._id);
     await interview.save();
 
-    const answerResponse = {
-      score,
+    return sendSuccess(res, {
+      score: evaluation.score,
+      feedback: evaluation.feedback,
+      strengths: evaluation.strengths,
+      weaknesses: evaluation.weaknesses,
+      suggestions: evaluation.suggestions,
       completed: false,
       nextQuestion: {
         questionId: nextQuestion._id,
         questionText: nextQuestion.questionText,
       },
-    };
-    return sendSuccess(res, answerResponse, "Answer submitted successfully");
+    }, "Answer submitted successfully");
   },
 );
 
@@ -166,7 +232,7 @@ export const getInterviewHistory = asyncHandler(
       questionsAnswered: interview.questionsAsked,
       status: interview.status,
       score: interview.overallScore,
-      date: interview.createdAt,
+      date: interview.startTime,
     }));
 
     return sendSuccess(
@@ -207,26 +273,48 @@ export const endInterview = asyncHandler(
       throw new AppError("Unauthorized", 403);
     }
 
+    // This check now works correctly: status only becomes "COMPLETED" once
+    // THIS function runs, not when submitAnswer merely reaches maxQuestions.
+    // (Previously submitAnswer set status to COMPLETED itself, which meant
+    // this guard always threw and endInterview could never actually run.)
     if (interview.status === "COMPLETED") {
       throw new AppError("Interview already completed", 400);
     }
-    const answers = await Answer.find({ interviewId });
+
+    const answers = await Answer.find({ interviewId }).populate("questionId");
 
     const totalScore = answers.reduce((sum, answer) => sum + answer.score, 0);
-
     const overallScore =
       answers.length > 0
         ? Math.round((totalScore / answers.length) * 10) / 10
         : 0;
 
+    let overallSummary = "";
+    try {
+      overallSummary = await generateOverallSummary(
+        interview.topic,
+        answers.map((a: any) => ({
+          questionText: a.questionId?.questionText ?? "Question",
+          transcript: a.transcript,
+          score: a.score,
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to generate overall summary:", error);
+      overallSummary = "Summary unavailable at this time.";
+    }
+
     interview.overallScore = overallScore;
+    interview.overallSummary = overallSummary;
     interview.status = "COMPLETED";
     interview.endTime = new Date();
 
     await interview.save();
+
     const interviewSummary = {
       interviewId: interview._id,
       overallScore,
+      overallSummary,
       questionsAnswered: answers.length,
       completed: true,
     };
