@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from "express";
 import authRoutes from "./routes/authRoutes";
 import interviewRoutes from "./routes/interviewRoutes"
 import feedbackRoutes from "./routes/feedbackRoutes"
+import analyticsRoutes from "./routes/analyticsRoutes"
 import { errorHandler } from "./middleware/errorHandler";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -38,8 +39,11 @@ app.use("/api/interview", interviewRoutes);
 //Auth Routes
 app.use("/api/auth", authRoutes);
 
-//Analytics Routes
+//Feedback Routes
 app.use("/api/feedback", feedbackRoutes);
+
+//Analytics Routes
+app.use("/api/analytics", analyticsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
