@@ -7,8 +7,6 @@ export default function LandingPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
 
-  // If a logged-in user lands on "/", send them straight to the dashboard
-  // instead of showing them the marketing page again.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate({ to: "/dashboard" });
@@ -17,7 +15,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Nav */}
       <header className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <span className="text-xl font-bold">PrepMentor</span>
         <nav className="flex items-center gap-4">
@@ -36,7 +33,6 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      {/* Hero */}
       <div className="flex flex-col items-center justify-center px-6 pt-16 pb-12 text-center">
         <h1 className="text-4xl md:text-6xl font-bold">PrepMentor 🚀</h1>
 
@@ -61,7 +57,6 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {/* Features */}
         <div className="mt-12 grid md:grid-cols-3 gap-6 max-w-4xl">
           <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
             <h3 className="text-lg font-semibold">Mock Interviews</h3>

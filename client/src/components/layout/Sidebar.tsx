@@ -4,9 +4,9 @@ import { useAuthStore } from "@/store/authStore";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/dashboard/interviews", label: "Interviews", icon: Mic },
-  { to: "/dashboard/history", label: "History", icon: History },
-  { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/dashboard/interviews", label: "Interviews", icon: Mic, exact: false },
+  { to: "/dashboard/history", label: "History", icon: History, exact: false },
+  { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3, exact: false },
 ] as const;
 
 export default function Sidebar() {
