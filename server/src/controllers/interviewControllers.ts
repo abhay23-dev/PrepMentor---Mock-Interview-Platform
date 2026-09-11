@@ -46,16 +46,16 @@ export const startInterview = asyncHandler(
     console.log(questions.length);
     console.log(questions);
 
-    // const newQuestion = new Question({
-    //   topic:"dbms",
-    //   difficulty:"Easy",
-    //   questionText:"What is acid?",
-    //   keywords:["atomicit", "consistency"],
-    //   questionType: "TECHNICAL"
-    // });
+    const newQuestion = new Question({
+      topic:"dbms",
+      difficulty:"Easy",
+      questionText:"What is acid?",
+      keywords:["atomicit", "consistency"],
+      questionType: "TECHNICAL"
+    });
 
-    // const savedQuestion = await newQuestion.save();
-    // console.log(savedQuestion);
+    const savedQuestion = await newQuestion.save();
+    console.log(savedQuestion);
 
     if (questions.length === 0) {
       throw new AppError("No questions available.", 404);

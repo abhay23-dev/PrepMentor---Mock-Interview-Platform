@@ -4,16 +4,11 @@ type AppLayoutProps = {
   children: React.ReactNode;
 };
 
-export default function AppLayout({
-  children,
-}: AppLayoutProps) {
+export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div>
+    <div className="flex min-h-screen bg-slate-950 text-white">
       <Sidebar />
-
-      <main>
-        {children}
-      </main>
+      <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );
 }

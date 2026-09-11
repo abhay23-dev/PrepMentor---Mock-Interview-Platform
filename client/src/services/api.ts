@@ -1,4 +1,5 @@
 import axios from "axios";
+import { TOKEN_KEY } from "@/constants/app.constants";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -8,7 +9,6 @@ const api = axios.create({
   withCredentials: true,
 });
 
-const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY;
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(TOKEN_KEY);

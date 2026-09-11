@@ -86,8 +86,3 @@ export interface InterviewResponse {
     questionText: string,
   },
 }
-
-export interface AuthResponse {
-  user: Omit<IUser, "password">;
-  token?: string;
-}

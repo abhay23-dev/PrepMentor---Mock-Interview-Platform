@@ -1,6 +1,6 @@
 import mongoose,{ Schema } from "mongoose";
-import { Difficulty, IInterview } from "../types";
- 
+import { IInterview } from "../types";
+
 const interviewSchema =
 new Schema<IInterview>(
 {
@@ -15,13 +15,21 @@ new Schema<IInterview>(
   },
   difficulty:{
     type:String,
-    enum:Object.values(Difficulty),
+    enum:[
+      "Easy",
+      "Medium",
+      "Hard"
+    ],
     required:true
   },
   currentDifficulty:{
     type:String,
-    enum:Object.values(Difficulty),
-    default:Difficulty.MEDIUM
+    enum:[
+      "Easy",
+      "Medium",
+      "Hard"
+    ],
+    default:"Medium"
   },
   askedQuestions:[
  {
@@ -37,46 +45,46 @@ new Schema<IInterview>(
     ],
     default:"ONGOING"
   },
- 
+
   questionsAsked:{
     type:Number,
     default:0
   },
- 
+
   maxQuestions:{
     type:Number,
     default:5
   },
- 
+
   overallScore:{
     type:Number,
     default:0
   },
- 
+
   overallSummary:{
     type:String,
     default:""
   },
- 
+
   startTime:{
     type:Date,
     default:Date.now
   },
- 
+
   endTime:{
     type:Date
   }
- 
+
 },
 {
   timestamps:true
 }
 );
- 
+
 const Interview =
 mongoose.model<IInterview>(
 "Interview",
 interviewSchema
 );
- 
+
 export default Interview;

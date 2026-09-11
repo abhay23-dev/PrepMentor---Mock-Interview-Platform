@@ -1,380 +1,147 @@
-import { NextFunction, Request, Response } from "express";
-import mongoose, { Types } from "mongoose";
+import { Request, Response } from "express";
 import { asyncHandler, sendSuccess } from "../utils/responseHelpers.js";
 import Interview from "../models/Interview.js";
 import Answer from "../models/Answer.js";
+import mongoose from "mongoose";
 
-/**
- * All analytics here are scoped to the authenticated user (req.userId).
- * The controllers themselves stay thin — each one just calls a "compute*"
- * helper and sends the result. The helpers are exported so multiple pieces
- * of analytics can be composed together (see getDashboardAnalytics) without
- * duplicating aggregation logic or firing the same query twice.
- */
+// GET /api/analytics
+// Aggregates everything the dashboard/analytics page needs for the
+// logged-in user in a single round trip: headline stats, a score trend
+// over time, a per-topic breakdown, a per-difficulty breakdown, and the
+// most recent strengths/weaknesses/suggestions pulled from answers.
+export const getUserAnalytics = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = new mongoose.Types.ObjectId(req.userId);
 
-// ---------- Shared types ----------
+    const interviews = await Interview.find({ userId }).sort({
+      startTime: 1,
+    });
 
-interface TopicBreakdown {
-  topic: string;
-  interviewsCount: number;
-  averageScore: number;
-  bestScore: number;
-}
+    const completedInterviews = interviews.filter(
+      (i) => i.status === "COMPLETED",
+    );
 
-interface DifficultyBreakdown {
-  difficulty: string;
-  questionsCount: number;
-  averageScore: number;
-}
+    const totalInterviews = interviews.length;
+    const totalCompleted = completedInterviews.length;
+    const totalQuestionsAnswered = interviews.reduce(
+      (sum, i) => sum + (i.questionsAsked || 0),
+      0,
+    );
 
-interface ProgressPoint {
-  interviewId: Types.ObjectId;
-  topic: string;
-  difficulty: string;
-  score: number;
-  date: Date;
-}
+    const averageScore =
+      totalCompleted > 0
+        ? Math.round(
+            (completedInterviews.reduce(
+              (sum, i) => sum + (i.overallScore || 0),
+              0,
+            ) /
+              totalCompleted) *
+              10,
+          ) / 10
+        : 0;
 
-interface StrengthsWeaknesses {
-  topStrengths: { text: string; count: number }[];
-  topWeaknesses: { text: string; count: number }[];
-  topSuggestions: { text: string; count: number }[];
-}
-
-interface OverviewAnalytics {
-  totalInterviews: number;
-  completedInterviews: number;
-  ongoingInterviews: number;
-  totalQuestionsAnswered: number;
-  topicsPracticed: number;
-  averageScore: number;
-  bestScore: number;
-  worstScore: number;
-  averageDurationMinutes: number;
-  trend: {
-    recentAverage: number;
-    previousAverage: number;
-    changePercent: number;
-  };
-}
-
-// ---------- Helpers ----------
-
-const toObjectId = (userId: string) => new Types.ObjectId(userId);
-
-/**
- * Returns every interview id that belongs to this user. Used to scope
- * Answer-collection aggregations (Answers don't store userId directly).
- */
-const getUserInterviewIds = async (userId: string): Promise<Types.ObjectId[]> => {
-  const ids = await Interview.find({ userId }).distinct("_id");
-  return ids as unknown as Types.ObjectId[];
-};
-
-export const computeOverview = async (
-  userId: string,
-): Promise<OverviewAnalytics> => {
-  const objectId = toObjectId(userId);
-
-  const [totalInterviews, completedInterviews, interviewIds] =
-    await Promise.all([
-      Interview.countDocuments({ userId: objectId }),
-      Interview.countDocuments({ userId: objectId, status: "COMPLETED" }),
-      getUserInterviewIds(userId),
-    ]);
-
-  const [totalQuestionsAnswered, topics] = await Promise.all([
-    Answer.countDocuments({ interviewId: { $in: interviewIds } }),
-    Interview.distinct("topic", { userId: objectId }),
-  ]);
-
-  const scoreStatsAgg = await Interview.aggregate([
-    { $match: { userId: objectId, status: "COMPLETED" } },
-    {
-      $group: {
-        _id: null,
-        averageScore: { $avg: "$overallScore" },
-        bestScore: { $max: "$overallScore" },
-        worstScore: { $min: "$overallScore" },
-        averageDurationMinutes: {
-          $avg: {
-            $cond: [
-              { $and: ["$endTime", "$startTime"] },
-              {
-                $divide: [
-                  { $subtract: ["$endTime", "$startTime"] },
-                  1000 * 60,
-                ],
-              },
-              null,
-            ],
-          },
-        },
-      },
-    },
-  ]);
-
-  const stats = scoreStatsAgg[0] ?? {
-    averageScore: 0,
-    bestScore: 0,
-    worstScore: 0,
-    averageDurationMinutes: 0,
-  };
-
-  // Trend: compare the average of the last 5 completed interviews against
-  // the 5 before that, so the UI can show "improving" / "declining".
-  const recentCompleted = await Interview.find({
-    userId: objectId,
-    status: "COMPLETED",
-  })
-    .sort({ endTime: -1 })
-    .limit(10)
-    .select("overallScore")
-    .lean();
-
-  const recentFive = recentCompleted.slice(0, 5);
-  const previousFive = recentCompleted.slice(5, 10);
-
-  const average = (arr: { overallScore: number }[]) =>
-    arr.length > 0
-      ? arr.reduce((sum, i) => sum + i.overallScore, 0) / arr.length
-      : 0;
-
-  const recentAverage = Math.round(average(recentFive) * 10) / 10;
-  const previousAverage = Math.round(average(previousFive) * 10) / 10;
-  const changePercent =
-    previousAverage > 0
-      ? Math.round(
-          ((recentAverage - previousAverage) / previousAverage) * 1000,
-        ) / 10
-      : 0;
-
-  return {
-    totalInterviews,
-    completedInterviews,
-    ongoingInterviews: totalInterviews - completedInterviews,
-    totalQuestionsAnswered,
-    topicsPracticed: topics.length,
-    averageScore: Math.round((stats.averageScore ?? 0) * 10) / 10,
-    bestScore: Math.round((stats.bestScore ?? 0) * 10) / 10,
-    worstScore: Math.round((stats.worstScore ?? 0) * 10) / 10,
-    averageDurationMinutes:
-      Math.round((stats.averageDurationMinutes ?? 0) * 10) / 10,
-    trend: {
-      recentAverage,
-      previousAverage,
-      changePercent,
-    },
-  };
-};
-
-export const computeTopicBreakdown = async (
-  userId: string,
-): Promise<TopicBreakdown[]> => {
-  const objectId = toObjectId(userId);
-
-  const result = await Interview.aggregate([
-    { $match: { userId: objectId, status: "COMPLETED" } },
-    {
-      $group: {
-        _id: "$topic",
-        interviewsCount: { $sum: 1 },
-        averageScore: { $avg: "$overallScore" },
-        bestScore: { $max: "$overallScore" },
-      },
-    },
-    { $sort: { averageScore: -1 } },
-  ]);
-
-  return result.map((r) => ({
-    topic: r._id,
-    interviewsCount: r.interviewsCount,
-    averageScore: Math.round(r.averageScore * 10) / 10,
-    bestScore: Math.round(r.bestScore * 10) / 10,
-  }));
-};
-
-export const computeDifficultyBreakdown = async (
-  userId: string,
-): Promise<DifficultyBreakdown[]> => {
-  const interviewIds = await getUserInterviewIds(userId);
-
-  if (interviewIds.length === 0) {
-    return [];
-  }
-
-  const result = await Answer.aggregate([
-    { $match: { interviewId: { $in: interviewIds } } },
-    {
-      $lookup: {
-        from: "questions",
-        localField: "questionId",
-        foreignField: "_id",
-        as: "question",
-      },
-    },
-    { $unwind: "$question" },
-    {
-      $group: {
-        _id: "$question.difficulty",
-        questionsCount: { $sum: 1 },
-        averageScore: { $avg: "$score" },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-
-  return result.map((r) => ({
-    difficulty: r._id,
-    questionsCount: r.questionsCount,
-    averageScore: Math.round(r.averageScore * 10) / 10,
-  }));
-};
-
-export const computeProgress = async (
-  userId: string,
-  limit: number,
-): Promise<ProgressPoint[]> => {
-  const objectId = toObjectId(userId);
-
-  const interviews = await Interview.find({
-    userId: objectId,
-    status: "COMPLETED",
-  })
-    .sort({ endTime: -1 })
-    .limit(limit)
-    .select("topic difficulty overallScore endTime")
-    .lean();
-
-  // Return oldest -> newest so the UI can plot it left-to-right on a chart.
-  return interviews
-    .reverse()
-    .map((interview) => ({
-      interviewId: interview._id as Types.ObjectId,
-      topic: interview.topic,
-      difficulty: interview.difficulty,
-      score: interview.overallScore,
-      date: interview.endTime as Date,
+    // Score trend: one point per completed interview, in chronological order.
+    const scoreTrend = completedInterviews.map((i) => ({
+      interviewId: i.id,
+      date: i.endTime ?? i.startTime,
+      topic: i.topic,
+      score: i.overallScore,
     }));
-};
 
-export const computeStrengthsWeaknesses = async (
-  userId: string,
-  topN: number = 8,
-): Promise<StrengthsWeaknesses> => {
-  const interviewIds = await getUserInterviewIds(userId);
-
-  if (interviewIds.length === 0) {
-    return { topStrengths: [], topWeaknesses: [], topSuggestions: [] };
-  }
-
-  const facetPipeline = (field: string) => [
-    { $unwind: `$${field}` },
-    { $group: { _id: `$${field}`, count: { $sum: 1 } } },
-    { $sort: { count: -1 as const } },
-    { $limit: topN },
-  ];
-
-  const [result] = await Answer.aggregate([
-    { $match: { interviewId: { $in: interviewIds } } },
-    {
-      $facet: {
-        strengths: facetPipeline("strengths"),
-        weaknesses: facetPipeline("weaknesses"),
-        suggestions: facetPipeline("suggestions"),
-      },
-    },
-  ]);
-
-  const mapItems = (items: { _id: string; count: number }[]) =>
-    items.map((i) => ({ text: i._id, count: i.count }));
-
-  return {
-    topStrengths: mapItems(result?.strengths ?? []),
-    topWeaknesses: mapItems(result?.weaknesses ?? []),
-    topSuggestions: mapItems(result?.suggestions ?? []),
-  };
-};
-
-// ---------- Controllers ----------
-
-export const getOverviewAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const overview = await computeOverview(req.userId);
-    sendSuccess(res, overview, "Overview analytics retrieved successfully");
-  },
-);
-
-export const getTopicAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const topics = await computeTopicBreakdown(req.userId);
-    sendSuccess(res, topics, "Topic analytics retrieved successfully");
-  },
-);
-
-export const getDifficultyAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const difficulty = await computeDifficultyBreakdown(req.userId);
-    sendSuccess(
-      res,
-      difficulty,
-      "Difficulty analytics retrieved successfully",
+    // Per-topic breakdown (count + average score, based on completed ones).
+    const topicMap = new Map<string, { count: number; totalScore: number }>();
+    for (const i of completedInterviews) {
+      const entry = topicMap.get(i.topic) ?? { count: 0, totalScore: 0 };
+      entry.count += 1;
+      entry.totalScore += i.overallScore || 0;
+      topicMap.set(i.topic, entry);
+    }
+    const topicBreakdown = Array.from(topicMap.entries()).map(
+      ([topic, { count, totalScore }]) => ({
+        topic,
+        interviews: count,
+        averageScore: Math.round((totalScore / count) * 10) / 10,
+      }),
     );
-  },
-);
 
-export const getProgressAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const limitParam = parseInt(req.query.limit as string, 10);
-    const limit =
-      Number.isFinite(limitParam) && limitParam > 0
-        ? Math.min(limitParam, 50)
-        : 10;
-
-    const progress = await computeProgress(req.userId, limit);
-    sendSuccess(res, progress, "Progress analytics retrieved successfully");
-  },
-);
-
-export const getStrengthsWeaknessesAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const data = await computeStrengthsWeaknesses(req.userId);
-    sendSuccess(
-      res,
-      data,
-      "Strengths and weaknesses analytics retrieved successfully",
+    // Per-difficulty breakdown.
+    const difficultyMap = new Map<
+      string,
+      { count: number; totalScore: number }
+    >();
+    for (const i of completedInterviews) {
+      const entry = difficultyMap.get(i.difficulty) ?? {
+        count: 0,
+        totalScore: 0,
+      };
+      entry.count += 1;
+      entry.totalScore += i.overallScore || 0;
+      difficultyMap.set(i.difficulty, entry);
+    }
+    const difficultyBreakdown = Array.from(difficultyMap.entries()).map(
+      ([difficulty, { count, totalScore }]) => ({
+        difficulty,
+        interviews: count,
+        averageScore: Math.round((totalScore / count) * 10) / 10,
+      }),
     );
-  },
-);
 
-/**
- * Single combined endpoint so the analytics dashboard page can render with
- * one network round trip instead of five. Runs every aggregation in
- * parallel since none of them depend on each other.
- */
-export const getDashboardAnalytics = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.userId;
+    // Strength / weakness signal pulled from the most recent answers across
+    // all of this user's interviews (cheap to compute, useful on its own).
+    const interviewIds = interviews.map((i) => i._id);
+    const recentAnswers = await Answer.find({
+      interviewId: { $in: interviewIds },
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
 
-    const [overview, topics, difficulty, progress, strengthsWeaknesses] =
-      await Promise.all([
-        computeOverview(userId),
-        computeTopicBreakdown(userId),
-        computeDifficultyBreakdown(userId),
-        computeProgress(userId, 10),
-        computeStrengthsWeaknesses(userId),
-      ]);
+    const tally = (field: "strengths" | "weaknesses" | "suggestions") => {
+      const counts = new Map<string, number>();
+      for (const answer of recentAnswers) {
+        for (const item of answer[field] ?? []) {
+          counts.set(item, (counts.get(item) ?? 0) + 1);
+        }
+      }
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([text, count]) => ({ text, count }));
+    };
 
-    sendSuccess(
+    const topStrengths = tally("strengths");
+    const topWeaknesses = tally("weaknesses");
+    const topSuggestions = tally("suggestions");
+
+    const recentInterviews = interviews
+      .slice(-5)
+      .reverse()
+      .map((i) => ({
+        interviewId: i.id,
+        topic: i.topic,
+        difficulty: i.difficulty,
+        status: i.status,
+        score: i.overallScore,
+        date: i.startTime,
+      }));
+
+    return sendSuccess(
       res,
       {
-        overview,
-        topics,
-        difficulty,
-        progress,
-        strengthsWeaknesses,
+        overview: {
+          totalInterviews,
+          totalCompleted,
+          totalQuestionsAnswered,
+          averageScore,
+        },
+        scoreTrend,
+        topicBreakdown,
+        difficultyBreakdown,
+        topStrengths,
+        topWeaknesses,
+        topSuggestions,
+        recentInterviews,
       },
-      "Dashboard analytics retrieved successfully",
+      "Analytics retrieved successfully",
     );
   },
 );

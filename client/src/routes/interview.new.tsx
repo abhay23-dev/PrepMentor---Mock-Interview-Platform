@@ -1,13 +1,15 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useAuthStore } from "@/store/authStore";
+import { createFileRoute } from "@tanstack/react-router";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import NewInterviewPage from "@/pages/NewInterviewPage";
 
+function NewInterviewRoute() {
+  return (
+    <ProtectedRoute>
+      <NewInterviewPage />
+    </ProtectedRoute>
+  );
+}
+
 export const Route = createFileRoute("/interview/new")({
-  beforeLoad: () => {
-    const { isAuthenticated } = useAuthStore.getState();
-    if (!isAuthenticated) {
-      throw redirect({ to: "/login" });
-    }
-  },
-  component: NewInterviewPage,
+  component: NewInterviewRoute,
 });
