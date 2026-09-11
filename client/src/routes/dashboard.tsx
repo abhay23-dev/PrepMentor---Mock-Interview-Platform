@@ -1,20 +1,4 @@
-// import { createFileRoute } from "@tanstack/react-router";
-// import DashboardPage from "@/pages/DashboardPage";
-// import ProtectedRoute from "@/components/ProtectedRoute";
-
-// function Dashboard() {
-//   return (
-//     //<ProtectedRoute>
-//       <DashboardPage />
-//     //</ProtectedRoute>
-//   );
-// }
-
-// export const Route = createFileRoute("/dashboard")({
-//   component: Dashboard,
-// });
-
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "@/store/authStore";
 
 function DashboardLayout() {
@@ -26,9 +10,9 @@ function DashboardLayout() {
         <h2 className="text-xl font-bold mb-6">PrepMentor</h2>
 
         <nav className="flex flex-col gap-3">
-          <a href="/dashboard" className="hover:text-blue-400">Dashboard</a>
-          <a href="/dashboard/interviews" className="hover:text-blue-400">Interviews</a>
-          <a href="/dashboard/history" className="hover:text-blue-400">History</a>
+          <Link to="/dashboard" className="hover:text-blue-400">Dashboard</Link>
+          <Link to="/dashboard/interviews" className="hover:text-blue-400">Interviews</Link>
+          <Link to="/dashboard/history" className="hover:text-blue-400">History</Link>
         </nav>
       </div>
 
@@ -41,8 +25,10 @@ function DashboardLayout() {
 }
 
 export const Route = createFileRoute("/dashboard")({
+  // The root route's beforeLoad has already awaited the auth check by the
+  // time this runs, so isAuthenticated reflects the real, verified state
+  // (not a default/loading value) — safe to redirect on here.
   beforeLoad: () => {
-    return;
     const { isAuthenticated } = useAuthStore.getState();
     if (!isAuthenticated) {
       throw redirect({ to: "/login" });
