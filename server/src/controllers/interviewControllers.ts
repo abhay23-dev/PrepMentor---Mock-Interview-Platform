@@ -6,6 +6,7 @@ import Question from "../models/Question.js";
 import Interview from "../models/Interview.js";
 import Answer from "../models/Answer.js";
 import { evaluateAnswer, generateOverallSummary } from "../services/aiService.js";
+import { getNextQuestion } from "../services/questionService.js";
 import { getNextDifficulty } from "../utils/difficultyHelper.js";
 
 export const startInterview = asyncHandler(
@@ -36,33 +37,21 @@ export const startInterview = asyncHandler(
         400,
       );
     }
-    console.log(topic);
-    console.log(difficulty);
-    const questions = await Question.find({
-      topic,
-      difficulty
-    });
 
-    console.log(questions.length);
-    console.log(questions);
-
-    const newQuestion = new Question({
-      topic:"dbms",
-      difficulty:"Easy",
-      questionText:"What is acid?",
-      keywords:["atomicit", "consistency"],
-      questionType: "TECHNICAL"
-    });
-
-    const savedQuestion = await newQuestion.save();
-    console.log(savedQuestion);
-
-    if (questions.length === 0) {
-      throw new AppError("No questions available.", 404);
+    let firstQuestion;
+    try {
+      firstQuestion = await getNextQuestion(topic, difficulty, []);
+    } catch (error) {
+      console.error("Failed to get a question for new interview:", error);
+      const detail =
+        process.env.NODE_ENV === "development" && error instanceof Error
+          ? ` (${error.message})`
+          : "";
+      throw new AppError(
+        `Unable to prepare interview questions right now. Please try again in a moment.${detail}`,
+        503,
+      );
     }
-
-    const randomIndex = Math.floor(Math.random() * questions.length);
-    const firstQuestion = questions[randomIndex];
 
     const interview = await Interview.create({
       userId,
@@ -173,31 +162,24 @@ export const submitAnswer = asyncHandler(
       }, "Interview Completed");
     }
 
-    const availableQuestions = await Question.find({
-      topic: interview.topic,
-      difficulty: interview.currentDifficulty,
-      _id: {
-        $nin: interview.askedQuestions,
-      },
-    });
-
-    // If the new (adapted) difficulty has run out of unused questions,
-    // fall back to the interview's original difficulty rather than failing.
-    const pool =
-      availableQuestions.length > 0
-        ? availableQuestions
-        : await Question.find({
-            topic: interview.topic,
-            difficulty: interview.difficulty,
-            _id: { $nin: interview.askedQuestions },
-          });
-
-    if (pool.length === 0) {
-      throw new AppError("No more questions are available.", 404);
+    let nextQuestion;
+    try {
+      nextQuestion = await getNextQuestion(
+        interview.topic,
+        interview.currentDifficulty,
+        interview.askedQuestions.map((id) => id.toString()),
+      );
+    } catch (error) {
+      console.error("Failed to get next question:", error);
+      const detail =
+        process.env.NODE_ENV === "development" && error instanceof Error
+          ? ` (${error.message})`
+          : "";
+      throw new AppError(
+        `Unable to prepare the next question right now. Please try again in a moment.${detail}`,
+        503,
+      );
     }
-
-    const randomIndex = Math.floor(Math.random() * pool.length);
-    const nextQuestion = pool[randomIndex];
 
     interview.askedQuestions.push(nextQuestion._id);
     await interview.save();

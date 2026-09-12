@@ -14,6 +14,8 @@ dns.setDefaultResultOrder("ipv4first");
 
 dotenv.config();
 
+console.log("ENV CHECK:", process.env.GROQ_API_KEY);
+
 const app: Application = express();
 const PORT = process.env.PORT || 8000;
 
