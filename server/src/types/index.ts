@@ -1,5 +1,5 @@
 import { Document, Types } from "mongoose";
-
+ 
 export enum Topics {
   DBMS = 'dbms',
   OS = "os", 
@@ -9,15 +9,15 @@ export enum Topics {
   NODE = "node",
   OTHER = "other"
 }
-
+ 
 export enum Difficulty {
   EASY = "Easy",
   HARD = "Hard",
   MEDIUM = "Medium"
 }
-
+ 
 export interface IUser extends Document {
-
+ 
   name: string;
   email: string;
   password: string;
@@ -25,7 +25,7 @@ export interface IUser extends Document {
   averageScore: number;
 }
 export interface IInterview extends Document {
-
+ 
   userId: Types.ObjectId;
   topic: string;
   difficulty: Difficulty;
@@ -41,18 +41,18 @@ export interface IInterview extends Document {
   startTime: Date;
   endTime?: Date;
 }
-
+ 
 export interface IQuestion extends Document {
-
+ 
   topic: string;
   difficulty: string;
   questionText: string;
   keywords: string[];
   questionType: string;
 }
-
+ 
 export interface IAnswer extends Document {
-
+ 
   interviewId: Types.ObjectId;
   questionId: Types.ObjectId;
   transcript: string;
@@ -61,10 +61,11 @@ export interface IAnswer extends Document {
   weaknesses: string[];
   suggestions: string[];
   aiFeedback: string;
+  idealAnswer: string;
 }
-
+ 
 export interface IFeedback extends Document {
-
+ 
   interviewId: Types.ObjectId;
   overallScore: number;
   communicationScore: number;
@@ -75,7 +76,7 @@ export interface IFeedback extends Document {
   weaknesses: string[];
   improvementAreas: string[];
 }
-
+ 
 export interface InterviewResponse {
   interviewId: Types.ObjectId,
   topic: string,

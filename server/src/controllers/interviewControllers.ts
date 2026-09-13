@@ -8,20 +8,20 @@ import Answer from "../models/Answer.js";
 import { evaluateAnswer, generateOverallSummary } from "../services/aiService.js";
 import { getNextQuestion } from "../services/questionService.js";
 import { getNextDifficulty } from "../utils/difficultyHelper.js";
-
+ 
 export const startInterview = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
-
+ 
     const { topic, difficulty } = req.body;
-
+ 
     if (!topic) {
       throw new AppError("Topic is required", 400);
     }
     if (!difficulty) {
       throw new AppError("Difficulty is required", 400);
     }
-
+ 
     const validTopics = Object.values(Topics);
     if (!validTopics.includes(topic)) {
       throw new AppError(
@@ -29,7 +29,7 @@ export const startInterview = asyncHandler(
         400,
       );
     }
-
+ 
     const validDifficulty = Object.values(Difficulty);
     if (!validDifficulty.includes(difficulty)) {
       throw new AppError(
@@ -37,7 +37,7 @@ export const startInterview = asyncHandler(
         400,
       );
     }
-
+ 
     let firstQuestion;
     try {
       firstQuestion = await getNextQuestion(topic, difficulty, []);
@@ -52,7 +52,7 @@ export const startInterview = asyncHandler(
         503,
       );
     }
-
+ 
     const interview = await Interview.create({
       userId,
       topic,
@@ -60,7 +60,7 @@ export const startInterview = asyncHandler(
       currentDifficulty: difficulty,
       askedQuestions: [firstQuestion._id],
     });
-
+ 
     const interviewResponse: InterviewResponse = {
       interviewId: interview._id,
       topic,
@@ -71,42 +71,42 @@ export const startInterview = asyncHandler(
         questionText: firstQuestion.questionText,
       },
     };
-
+ 
     sendSuccess(res, interviewResponse, "Interview Started", 201);
   },
 );
-
+ 
 export const submitAnswer = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
     const interviewId = req.params.id;
     const { questionId, answer } = req.body;
-
+ 
     if (!questionId) {
       throw new AppError("QuestionId is required", 400);
     }
     if (!answer) {
       throw new AppError("Answer is required", 400);
     }
-
+ 
     const interview = await Interview.findById(interviewId);
     if (!interview) {
       throw new AppError("Interview doesn't exist", 400);
     }
-
+ 
     if (interview.userId.toString() != userId) {
       throw new AppError("Unauthorized", 403);
     }
-
+ 
     const question = await Question.findById(questionId);
     if (!question) {
       throw new AppError("Invalid question.", 400);
     }
-
+ 
     if (!interview.askedQuestions.some((id) => id.toString() === questionId)) {
       throw new AppError("Question not part of Interview", 400);
     }
-
+ 
     // Real AI evaluation, with a safe neutral fallback if the API call fails
     // (a transient AI-provider outage shouldn't break the whole interview).
     let evaluation;
@@ -124,9 +124,10 @@ export const submitAnswer = asyncHandler(
         weaknesses: [] as string[],
         suggestions: [] as string[],
         feedback: "Automated evaluation was unavailable for this answer.",
+        idealAnswer: "",
       };
     }
-
+ 
     await Answer.create({
       interviewId,
       questionId,
@@ -136,22 +137,23 @@ export const submitAnswer = asyncHandler(
       weaknesses: evaluation.weaknesses,
       suggestions: evaluation.suggestions,
       aiFeedback: evaluation.feedback,
+      idealAnswer: evaluation.idealAnswer,
     });
-
+ 
     // Adaptive difficulty: adjust before picking the next question
     interview.currentDifficulty = getNextDifficulty(
       interview.currentDifficulty,
       evaluation.score,
     );
-
+ 
     interview.questionsAsked += 1;
-
+ 
     // NOTE: status is intentionally left "ONGOING" here even when the max
     // question count is reached. Finalizing status/overallScore is the
     // job of endInterview alone — see the comment there for why.
     if (interview.questionsAsked >= interview.maxQuestions) {
       await interview.save();
-
+ 
       return sendSuccess(res, {
         score: evaluation.score,
         feedback: evaluation.feedback,
@@ -161,7 +163,7 @@ export const submitAnswer = asyncHandler(
         completed: true,
       }, "Interview Completed");
     }
-
+ 
     let nextQuestion;
     try {
       nextQuestion = await getNextQuestion(
@@ -180,10 +182,10 @@ export const submitAnswer = asyncHandler(
         503,
       );
     }
-
+ 
     interview.askedQuestions.push(nextQuestion._id);
     await interview.save();
-
+ 
     return sendSuccess(res, {
       score: evaluation.score,
       feedback: evaluation.feedback,
@@ -198,7 +200,7 @@ export const submitAnswer = asyncHandler(
     }, "Answer submitted successfully");
   },
 );
-
+ 
 export const getInterviewHistory = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
@@ -206,7 +208,7 @@ export const getInterviewHistory = asyncHandler(
     if (interviews.length === 0) {
       return sendSuccess(res, [], "No interivews found.");
     }
-
+ 
     const history = interviews.map((interview) => ({
       interviewId: interview.id,
       topic: interview.topic,
@@ -216,7 +218,7 @@ export const getInterviewHistory = asyncHandler(
       score: interview.overallScore,
       date: interview.startTime,
     }));
-
+ 
     return sendSuccess(
       res,
       history,
@@ -225,13 +227,13 @@ export const getInterviewHistory = asyncHandler(
     );
   },
 );
-
+ 
 export const getInterviewById = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
     const interviewId = req.params.id;
     const interview = await Interview.findById(interviewId);
-
+ 
     if (!interview) {
       throw new AppError("No interview found", 400);
     }
@@ -241,12 +243,12 @@ export const getInterviewById = asyncHandler(
     return sendSuccess(res, interview, "Interview retrieved successfully.");
   },
 );
-
+ 
 export const endInterview = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
     const interviewId = req.params.id;
-
+ 
     const interview = await Interview.findById(interviewId);
     if (!interview) {
       throw new AppError("Interview not found", 404);
@@ -254,7 +256,7 @@ export const endInterview = asyncHandler(
     if (interview.userId.toString() !== userId) {
       throw new AppError("Unauthorized", 403);
     }
-
+ 
     // This check now works correctly: status only becomes "COMPLETED" once
     // THIS function runs, not when submitAnswer merely reaches maxQuestions.
     // (Previously submitAnswer set status to COMPLETED itself, which meant
@@ -262,15 +264,15 @@ export const endInterview = asyncHandler(
     if (interview.status === "COMPLETED") {
       throw new AppError("Interview already completed", 400);
     }
-
+ 
     const answers = await Answer.find({ interviewId }).populate("questionId");
-
+ 
     const totalScore = answers.reduce((sum, answer) => sum + answer.score, 0);
     const overallScore =
       answers.length > 0
         ? Math.round((totalScore / answers.length) * 10) / 10
         : 0;
-
+ 
     let overallSummary = "";
     try {
       overallSummary = await generateOverallSummary(
@@ -285,14 +287,14 @@ export const endInterview = asyncHandler(
       console.error("Failed to generate overall summary:", error);
       overallSummary = "Summary unavailable at this time.";
     }
-
+ 
     interview.overallScore = overallScore;
     interview.overallSummary = overallSummary;
     interview.status = "COMPLETED";
     interview.endTime = new Date();
-
+ 
     await interview.save();
-
+ 
     const interviewSummary = {
       interviewId: interview._id,
       overallScore,

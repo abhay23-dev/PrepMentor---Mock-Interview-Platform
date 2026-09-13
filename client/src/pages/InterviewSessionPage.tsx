@@ -20,7 +20,6 @@ export default function InterviewSessionPage() {
     questionsAsked,
     maxQuestions,
     status,
-    lastScore,
     overallScore,
     isLoading,
     submitAnswer,
@@ -155,8 +154,20 @@ export default function InterviewSessionPage() {
           </div>
 
           <button
-            onClick={handleFinish}
+            onClick={() =>
+              navigate({
+                to: "/feedback/$interviewId",
+                params: { interviewId: routeInterviewId },
+              })
+            }
             className="mt-6 w-full rounded-lg bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700"
+          >
+            View Detailed Feedback
+          </button>
+
+          <button
+            onClick={handleFinish}
+            className="mt-3 w-full rounded-lg border border-slate-700 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
           >
             Back to Dashboard
           </button>
@@ -172,11 +183,6 @@ export default function InterviewSessionPage() {
           <span className="text-sm text-slate-400">
             Question {questionsAsked + 1} of {maxQuestions}
           </span>
-          {lastScore !== null && (
-            <span className="text-sm text-emerald-400">
-              Last score: {lastScore}/10
-            </span>
-          )}
         </div>
 
         <div className="flex items-start justify-between gap-3 mt-4">

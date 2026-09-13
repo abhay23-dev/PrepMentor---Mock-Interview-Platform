@@ -1,6 +1,6 @@
 import mongoose,{ Schema } from "mongoose";
 import { IAnswer } from "../types";
-
+ 
 const answerSchema =
 new Schema<IAnswer>(
 {
@@ -17,18 +17,19 @@ new Schema<IAnswer>(
   strengths:[String],
   weaknesses:[String],
   suggestions:[String],
-  aiFeedback:String
-
+  aiFeedback:String,
+  idealAnswer:String
+ 
 },
 {
   timestamps:true
 }
 );
-
+ 
 const Answer =
 mongoose.model<IAnswer>(
 "Answer",
 answerSchema
 );
-
+ 
 export default Answer;

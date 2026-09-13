@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { interviewService } from "@/services/interviewService";
 import { getTopicLabel, TOPICS, DIFFICULTIES } from "@/constants/interview.constants";
 import type {
@@ -118,6 +119,7 @@ export default function InterviewHistoryPage() {
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Score</th>
                 <th className="px-5 py-3 font-medium">Date</th>
+                <th className="px-5 py-3 font-medium">Feedback</th>
               </tr>
             </thead>
             <tbody>
@@ -152,13 +154,26 @@ export default function InterviewHistoryPage() {
                   <td className="px-5 py-4 text-slate-400">
                     {new Date(item.date).toLocaleDateString()}
                   </td>
+                  <td className="px-5 py-4">
+                    {item.status === "COMPLETED" ? (
+                      <Link
+                        to="/feedback/$interviewId"
+                        params={{ interviewId: item.interviewId }}
+                        className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                      >
+                        View
+                      </Link>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
 
               {filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-5 py-8 text-center text-slate-500"
                   >
                     No interviews match these filters.

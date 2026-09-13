@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as InterviewNewRouteImport } from './routes/interview.new'
 import { Route as InterviewInterviewIdRouteImport } from './routes/interview.$interviewId'
+import { Route as FeedbackInterviewIdRouteImport } from './routes/feedback.$interviewId'
 import { Route as DashboardInterviewsRouteImport } from './routes/dashboard.interviews'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard.history'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard.analytics'
@@ -55,6 +56,11 @@ const InterviewInterviewIdRoute = InterviewInterviewIdRouteImport.update({
   path: '/interview/$interviewId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedbackInterviewIdRoute = FeedbackInterviewIdRouteImport.update({
+  id: '/feedback/$interviewId',
+  path: '/feedback/$interviewId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardInterviewsRoute = DashboardInterviewsRouteImport.update({
   id: '/interviews',
   path: '/interviews',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
+  '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
+  '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
+  '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/dashboard/analytics'
     | '/dashboard/history'
     | '/dashboard/interviews'
+    | '/feedback/$interviewId'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard/'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/dashboard/analytics'
     | '/dashboard/history'
     | '/dashboard/interviews'
+    | '/feedback/$interviewId'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/dashboard/analytics'
     | '/dashboard/history'
     | '/dashboard/interviews'
+    | '/feedback/$interviewId'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard/'
@@ -150,6 +162,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  FeedbackInterviewIdRoute: typeof FeedbackInterviewIdRoute
   InterviewInterviewIdRoute: typeof InterviewInterviewIdRoute
   InterviewNewRoute: typeof InterviewNewRoute
 }
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterviewInterviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feedback/$interviewId': {
+      id: '/feedback/$interviewId'
+      path: '/feedback/$interviewId'
+      fullPath: '/feedback/$interviewId'
+      preLoaderRoute: typeof FeedbackInterviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/interviews': {
       id: '/dashboard/interviews'
       path: '/interviews'
@@ -252,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  FeedbackInterviewIdRoute: FeedbackInterviewIdRoute,
   InterviewInterviewIdRoute: InterviewInterviewIdRoute,
   InterviewNewRoute: InterviewNewRoute,
 }

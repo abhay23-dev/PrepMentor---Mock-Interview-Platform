@@ -3,12 +3,24 @@ import { asyncHandler, sendSuccess } from "../utils/responseHelpers.js";
 import Interview from "../models/Interview.js";
 import { AppError } from "../middleware/errorHandler.js";
 import Answer from "../models/Answer.js";
-
+ 
+/**
+ * Builds the full post-interview feedback report: every question asked,
+ * the candidate's own answer, and the AI's short ideal answer for it,
+ * alongside the score already computed per answer.
+ *
+ * This intentionally does no new AI calls and no new writes — everything
+ * here was already saved to the DB during the interview (Answer documents
+ * carry idealAnswer/score/etc. from submitAnswer, and Interview carries
+ * overallScore/overallSummary from endInterview). That means this endpoint
+ * is cheap to call repeatedly, which is what lets interview history reuse
+ * it any time the user wants to look back at a past interview.
+ */
 export const getInterviewFeedback = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.userId;
     const interviewId = req.params.interviewId;
-
+ 
     const interview = await Interview.findById(interviewId);
     if (!interview) {
       throw new AppError("Interview not found", 404);
@@ -16,64 +28,43 @@ export const getInterviewFeedback = asyncHandler(
     if (interview.userId.toString() !== userId) {
       throw new AppError("Unauthorized", 403);
     }
-
-    const answers = await Answer.find({ interviewId });
-
+ 
+    // Sorted by createdAt so questions appear in the order they were
+    // actually asked, not in whatever order Mongo happens to return them.
+    const answers = await Answer.find({ interviewId })
+      .populate("questionId")
+      .sort({ createdAt: 1 });
+ 
     if (answers.length === 0) {
-      throw new AppError("No answers found", 400);
+      throw new AppError("No answers found for this interview", 400);
     }
-
-    const totalScore = answers.reduce((sum, answer) => answer.score + sum, 0);
-
-    const averageScore = Math.round((totalScore / answers.length) * 10) / 10;
-    let summary = "";
-    let strengths: string[] = [];
-    let weaknesses: string[] = [];
-    let suggestions: string[] = [];
-
-    if (averageScore >= 8) {
-      summary = "Strong performance";
-
-      strengths = [
-        "Good technical understanding",
-        "Answered most questions confidently",
-      ];
-
-      weaknesses = ["Minor improvements possible"];
-
-      suggestions = ["Practice advanced topics"];
-    } else if (averageScore >= 5) {
-      summary = "Average performance";
-
-      strengths = ["Basic concepts understood"];
-
-      weaknesses = ["Some answers lacked depth"];
-
-      suggestions = ["Revise core concepts", "Practice mock interviews"];
-    } else {
-      summary = "Needs improvement";
-
-      strengths = ["Attempted all questions"];
-
-      weaknesses = ["Weak technical understanding"];
-
-      suggestions = ["Review fundamentals", "Practice regularly"];
-    }
-
+ 
+    const questions = answers.map((answer: any, index: number) => ({
+      questionNumber: index + 1,
+      questionText: answer.questionId?.questionText ?? "Question unavailable",
+      userAnswer: answer.transcript,
+      idealAnswer: answer.idealAnswer || "No ideal answer available.",
+      score: answer.score,
+    }));
+ 
     const feedbackResponse = {
-      interviewId,
+      interviewId: interview._id,
       topic: interview.topic,
-      overallScore: averageScore,
+      difficulty: interview.difficulty,
+      status: interview.status,
+      // Computed once by endInterview and saved on the Interview document —
+      // reused here rather than recalculated, so this always matches what
+      // the user saw right when their interview finished.
+      overallScore: interview.overallScore,
+      overallSummary: interview.overallSummary,
       questionsAnswered: answers.length,
-      summary,
-      strengths,
-      weaknesses,
-      suggestions,
+      questions,
     };
+ 
     return sendSuccess(
       res,
       feedbackResponse,
-      "Feedback generated successfully",
+      "Feedback retrieved successfully",
     );
   },
 );

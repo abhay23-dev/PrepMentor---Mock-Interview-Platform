@@ -1,6 +1,6 @@
 // These mirror your backend's Topics/Difficulty enums (types/index.ts)
 // and the shapes returned by interviewControllers.ts
-
+ 
 export type Topic =
   | "dbms"
   | "os"
@@ -9,30 +9,30 @@ export type Topic =
   | "react"
   | "node"
   | "other";
-
+ 
 export type Difficulty = "Easy" | "Medium" | "Hard";
-
+ 
 export type InterviewStatus = "IDLE" | "ONGOING" | "COMPLETED";
-
+ 
 export interface InterviewQuestion {
   questionId: string;
   questionText: string;
 }
-
+ 
 // ---- Request payloads ----
-
+ 
 export interface StartInterviewRequest {
   topic: Topic;
   difficulty: Difficulty;
 }
-
+ 
 export interface SubmitAnswerRequest {
   questionId: string;
   answer: string;
 }
-
+ 
 // ---- Response payloads (the `data` field of sendSuccess) ----
-
+ 
 export interface StartInterviewResponse {
   interviewId: string;
   topic: Topic;
@@ -40,21 +40,40 @@ export interface StartInterviewResponse {
   maxQuestions: number;
   question: InterviewQuestion;
 }
-
+ 
 export interface SubmitAnswerResponse {
   score: number;
   completed: boolean;
   // only present when completed === false
   nextQuestion?: InterviewQuestion;
 }
-
+ 
 export interface EndInterviewResponse {
   interviewId: string;
   overallScore: number;
   questionsAnswered: number;
   completed: boolean;
 }
-
+ 
+export interface QuestionFeedback {
+  questionNumber: number;
+  questionText: string;
+  userAnswer: string;
+  idealAnswer: string;
+  score: number;
+}
+ 
+export interface InterviewFeedbackResponse {
+  interviewId: string;
+  topic: Topic;
+  difficulty: Difficulty;
+  status: InterviewStatus;
+  overallScore: number;
+  overallSummary: string;
+  questionsAnswered: number;
+  questions: QuestionFeedback[];
+}
+ 
 export interface InterviewHistoryItem {
   interviewId: string;
   topic: Topic;
@@ -64,9 +83,9 @@ export interface InterviewHistoryItem {
   score: number;
   date: string;
 }
-
+ 
 // ---- Zustand store shape ----
-
+ 
 export interface InterviewStore {
   interviewId: string | null;
   topic: Topic | null;
@@ -79,7 +98,7 @@ export interface InterviewStore {
   overallScore: number | null;
   isLoading: boolean;
   error: string | null;
-
+ 
   startInterview: (topic: Topic, difficulty: Difficulty) => Promise<string>;
   submitAnswer: (answer: string) => Promise<{ completed: boolean }>;
   endInterview: () => Promise<void>;
