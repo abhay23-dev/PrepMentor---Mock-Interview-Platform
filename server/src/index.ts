@@ -3,6 +3,7 @@ import authRoutes from "./routes/authRoutes";
 import interviewRoutes from "./routes/interviewRoutes"
 import feedbackRoutes from "./routes/feedbackRoutes"
 import analyticsRoutes from "./routes/analyticsRoutes"
+import gdRoutes from "./routes/gdRoutes"
 import { errorHandler } from "./middleware/errorHandler";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -46,6 +47,9 @@ app.use("/api/feedback", feedbackRoutes);
 
 //Analytics Routes
 app.use("/api/analytics", analyticsRoutes);
+
+//Gd Routes
+app.use("/api/gd", gdRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({

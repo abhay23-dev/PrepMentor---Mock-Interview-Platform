@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Mic, History, BarChart3, LogOut } from "lucide-react";
+import { LayoutDashboard, Mic, History, BarChart3, LogOut, Users } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/dashboard/interviews", label: "Interviews", icon: Mic, exact: false },
   { to: "/dashboard/history", label: "History", icon: History, exact: false },
   { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3, exact: false },
+  { to: "/gd/new", label: "Group Discussion", icon: Users, exact: false },
 ] as const;
 
 export default function Sidebar() {

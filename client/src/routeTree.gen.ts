@@ -16,6 +16,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as InterviewNewRouteImport } from './routes/interview.new'
 import { Route as InterviewInterviewIdRouteImport } from './routes/interview.$interviewId'
+import { Route as GdNewRouteImport } from './routes/gd.new'
+import { Route as GdSessionIdRouteImport } from './routes/gd.$sessionId'
 import { Route as FeedbackInterviewIdRouteImport } from './routes/feedback.$interviewId'
 import { Route as DashboardInterviewsRouteImport } from './routes/dashboard.interviews'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard.history'
@@ -56,6 +58,16 @@ const InterviewInterviewIdRoute = InterviewInterviewIdRouteImport.update({
   path: '/interview/$interviewId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GdNewRoute = GdNewRouteImport.update({
+  id: '/gd/new',
+  path: '/gd/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GdSessionIdRoute = GdSessionIdRouteImport.update({
+  id: '/gd/$sessionId',
+  path: '/gd/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeedbackInterviewIdRoute = FeedbackInterviewIdRouteImport.update({
   id: '/feedback/$interviewId',
   path: '/feedback/$interviewId',
@@ -86,6 +98,8 @@ export interface FileRoutesByFullPath {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
+  '/gd/$sessionId': typeof GdSessionIdRoute
+  '/gd/new': typeof GdNewRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -98,6 +112,8 @@ export interface FileRoutesByTo {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
+  '/gd/$sessionId': typeof GdSessionIdRoute
+  '/gd/new': typeof GdNewRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -112,6 +128,8 @@ export interface FileRoutesById {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
+  '/gd/$sessionId': typeof GdSessionIdRoute
+  '/gd/new': typeof GdNewRoute
   '/interview/$interviewId': typeof InterviewInterviewIdRoute
   '/interview/new': typeof InterviewNewRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -127,6 +145,8 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
+    | '/gd/$sessionId'
+    | '/gd/new'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard/'
@@ -139,6 +159,8 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
+    | '/gd/$sessionId'
+    | '/gd/new'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard'
@@ -152,6 +174,8 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
+    | '/gd/$sessionId'
+    | '/gd/new'
     | '/interview/$interviewId'
     | '/interview/new'
     | '/dashboard/'
@@ -163,6 +187,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   FeedbackInterviewIdRoute: typeof FeedbackInterviewIdRoute
+  GdSessionIdRoute: typeof GdSessionIdRoute
+  GdNewRoute: typeof GdNewRoute
   InterviewInterviewIdRoute: typeof InterviewInterviewIdRoute
   InterviewNewRoute: typeof InterviewNewRoute
 }
@@ -216,6 +242,20 @@ declare module '@tanstack/react-router' {
       path: '/interview/$interviewId'
       fullPath: '/interview/$interviewId'
       preLoaderRoute: typeof InterviewInterviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gd/new': {
+      id: '/gd/new'
+      path: '/gd/new'
+      fullPath: '/gd/new'
+      preLoaderRoute: typeof GdNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gd/$sessionId': {
+      id: '/gd/$sessionId'
+      path: '/gd/$sessionId'
+      fullPath: '/gd/$sessionId'
+      preLoaderRoute: typeof GdSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feedback/$interviewId': {
@@ -273,6 +313,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   FeedbackInterviewIdRoute: FeedbackInterviewIdRoute,
+  GdSessionIdRoute: GdSessionIdRoute,
+  GdNewRoute: GdNewRoute,
   InterviewInterviewIdRoute: InterviewInterviewIdRoute,
   InterviewNewRoute: InterviewNewRoute,
 }
