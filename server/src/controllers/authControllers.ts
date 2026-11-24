@@ -4,6 +4,7 @@ import { AppError } from "../middleware/errorHandler.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/tokenHelpers.js";
+import { AuthResponse } from "../types/index.js";
 
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const { name, email, password } = req.body;

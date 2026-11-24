@@ -87,3 +87,16 @@ export interface InterviewResponse {
     questionText: string,
   },
 }
+
+export interface AuthResponse {
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    totalInterviews: number;
+    averageScore: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+  };
+  token?: string;
+}

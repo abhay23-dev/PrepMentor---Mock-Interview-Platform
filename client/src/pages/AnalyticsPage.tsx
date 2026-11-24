@@ -180,8 +180,8 @@ export default function AnalyticsPage() {
                 labelFormatter={(_, payload) =>
                   payload?.[0]?.payload?.dateLabel ?? ""
                 }
-                formatter={(value: number, _name, item: any) => [
-                  `${value}/10`,
+                formatter={(value, _name, item: any) => [
+                  `${value ?? 0}/10`,
                   getTopicLabel(item.payload.topic),
                 ]}
               />
@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
                     borderRadius: 8,
                     color: "#e2e8f0",
                   }}
-                  formatter={(value: number) => [`${value}/10`, "Avg score"]}
+                  formatter={(value) => [`${value ?? 0}/10`, "Avg score"]}
                 />
                 <Bar dataKey="averageScore" fill="#3b82f6" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -246,7 +246,7 @@ export default function AnalyticsPage() {
                     borderRadius: 8,
                     color: "#e2e8f0",
                   }}
-                  formatter={(value: number) => [`${value}/10`, "Avg score"]}
+                  formatter={(value) => [`${value ?? 0}/10`, "Avg score"]}
                 />
                 <Bar dataKey="averageScore" radius={[6, 6, 0, 0]}>
                   {data.difficultyBreakdown.map((entry) => (

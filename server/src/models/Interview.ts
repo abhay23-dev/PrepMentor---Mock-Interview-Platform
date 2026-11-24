@@ -1,5 +1,5 @@
 import mongoose,{ Schema } from "mongoose";
-import { IInterview } from "../types";
+import { Difficulty, IInterview } from "../types";
 
 const interviewSchema =
 new Schema<IInterview>(
@@ -22,15 +22,11 @@ new Schema<IInterview>(
     ],
     required:true
   },
-  currentDifficulty:{
-    type:String,
-    enum:[
-      "Easy",
-      "Medium",
-      "Hard"
-    ],
-    default:"Medium"
-  },
+  currentDifficulty: {
+  type: String,
+  enum: Object.values(Difficulty),
+  default: Difficulty.MEDIUM
+},
   askedQuestions:[
  {
    type:Schema.Types.ObjectId,
