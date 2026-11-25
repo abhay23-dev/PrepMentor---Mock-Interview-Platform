@@ -40,7 +40,7 @@ export default function MockInterviewsHubPage() {
     <div className="space-y-8">
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Mock Interviews</h1>
+          <h1 className="text-2xl font-bold text-fg">Mock Interviews</h1>
           <p className="mt-2 text-slate-400">
             Start a new AI-driven interview session, or pick up where you left
             off below.
@@ -58,7 +58,7 @@ export default function MockInterviewsHubPage() {
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-xl font-semibold text-fg">
             Recent Interviews
           </h2>
           <Link
@@ -85,7 +85,7 @@ export default function MockInterviewsHubPage() {
               className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 px-5 py-4"
             >
               <div>
-                <p className="font-medium text-white">
+                <p className="font-medium text-fg">
                   {getTopicLabel(item.topic)}{" "}
                   <span className="text-slate-500 font-normal">
                     · {item.difficulty}
@@ -108,7 +108,7 @@ export default function MockInterviewsHubPage() {
                 >
                   {item.status}
                 </span>
-                <span className="text-white font-semibold w-12 text-right">
+                <span className="text-fg font-semibold w-12 text-right">
                   {item.status === "COMPLETED" ? `${item.score}/10` : "—"}
                 </span>
               </div>

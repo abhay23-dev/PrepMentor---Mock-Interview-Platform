@@ -59,7 +59,7 @@ export default function InterviewHistoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Interview History</h1>
+        <h1 className="text-2xl font-bold text-fg">Interview History</h1>
         <p className="mt-1 text-slate-400">
           {history.length} interview{history.length === 1 ? "" : "s"} total
         </p>
@@ -69,7 +69,7 @@ export default function InterviewHistoryPage() {
         <select
           value={topicFilter}
           onChange={(e) => setTopicFilter(e.target.value as Topic | "ALL")}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white outline-none focus:border-blue-500"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-fg outline-none focus:border-blue-500"
         >
           <option value="ALL">All Topics</option>
           {TOPICS.map((t) => (
@@ -84,7 +84,7 @@ export default function InterviewHistoryPage() {
           onChange={(e) =>
             setDifficultyFilter(e.target.value as Difficulty | "ALL")
           }
-          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white outline-none focus:border-blue-500"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-fg outline-none focus:border-blue-500"
         >
           <option value="ALL">All Difficulties</option>
           {DIFFICULTIES.map((d) => (
@@ -97,7 +97,7 @@ export default function InterviewHistoryPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white outline-none focus:border-blue-500"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-fg outline-none focus:border-blue-500"
         >
           <option value="ALL">All Statuses</option>
           <option value="ONGOING">Ongoing</option>
@@ -128,7 +128,7 @@ export default function InterviewHistoryPage() {
                   key={item.interviewId}
                   className="border-t border-slate-800 bg-slate-950 hover:bg-slate-900 transition"
                 >
-                  <td className="px-5 py-4 text-white">
+                  <td className="px-5 py-4 text-fg">
                     {getTopicLabel(item.topic)}
                   </td>
                   <td className="px-5 py-4 text-slate-300">
@@ -148,7 +148,7 @@ export default function InterviewHistoryPage() {
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-white font-semibold">
+                  <td className="px-5 py-4 text-fg font-semibold">
                     {item.status === "COMPLETED" ? `${item.score}/10` : "—"}
                   </td>
                   <td className="px-5 py-4 text-slate-400">

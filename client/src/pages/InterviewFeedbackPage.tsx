@@ -37,7 +37,7 @@ function QuestionFeedbackCard({
           <span className="mt-0.5 shrink-0 rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-slate-400">
             Q{q.questionNumber}
           </span>
-          <h3 className="font-medium text-white">{q.questionText}</h3>
+          <h3 className="font-medium text-fg">{q.questionText}</h3>
         </div>
         <ScoreBadge score={q.score} />
       </div>
@@ -106,7 +106,7 @@ export default function InterviewFeedbackPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
         <div className="w-full max-w-md rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800 text-center">
-          <h1 className="text-xl font-bold text-white">
+          <h1 className="text-xl font-bold text-fg">
             {error ?? "No feedback found."}
           </h1>
           <button
@@ -128,7 +128,7 @@ export default function InterviewFeedbackPage() {
           <p className="text-sm uppercase tracking-wide text-slate-500">
             {feedback.topic} · {feedback.difficulty}
           </p>
-          <h1 className="mt-2 text-2xl font-bold text-white">
+          <h1 className="mt-2 text-2xl font-bold text-fg">
             Interview Feedback
           </h1>
 
@@ -149,7 +149,7 @@ export default function InterviewFeedbackPage() {
 
         {/* Every question, the candidate's answer, and the ideal answer */}
         <div>
-          <h2 className="text-lg font-semibold text-white mb-4">
+          <h2 className="text-lg font-semibold text-fg mb-4">
             Question-by-Question Review
           </h2>
           <div className="space-y-4">

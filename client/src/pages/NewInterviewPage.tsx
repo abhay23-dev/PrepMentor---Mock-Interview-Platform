@@ -38,7 +38,7 @@ export default function NewInterviewPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-lg rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800">
-        <h1 className="text-3xl font-bold text-white text-center">
+        <h1 className="text-3xl font-bold text-fg text-center">
           Start a Mock Interview
         </h1>
         <p className="text-slate-400 text-center mt-2">

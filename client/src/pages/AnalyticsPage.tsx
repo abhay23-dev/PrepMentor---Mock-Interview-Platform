@@ -26,7 +26,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="p-6 bg-slate-900 rounded-xl border border-slate-800">
       <p className="text-slate-400 text-sm">{label}</p>
-      <h2 className="text-2xl font-bold mt-2 text-white">{value}</h2>
+      <h2 className="text-2xl font-bold mt-2 text-fg">{value}</h2>
     </div>
   );
 }
@@ -44,7 +44,7 @@ function TallyList({
 }) {
   return (
     <div className="p-6 bg-slate-900 rounded-xl border border-slate-800">
-      <h3 className="text-white font-semibold">{title}</h3>
+      <h3 className="text-fg font-semibold">{title}</h3>
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">{emptyText}</p>
       ) : (
@@ -104,13 +104,13 @@ export default function AnalyticsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Analytics</h1>
+          <h1 className="text-2xl font-bold text-fg">Analytics</h1>
           <p className="mt-1 text-slate-400">
             Your interview performance over time.
           </p>
         </div>
         <div className="p-10 bg-slate-900 rounded-xl border border-slate-800 text-center">
-          <p className="text-white font-semibold">No data yet</p>
+          <p className="text-fg font-semibold">No data yet</p>
           <p className="mt-2 text-sm text-slate-400">
             Complete a mock interview and your scores, topic breakdown, and
             feedback trends will show up here.
@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Analytics</h1>
+        <h1 className="text-2xl font-bold text-fg">Analytics</h1>
         <p className="mt-1 text-slate-400">
           Your interview performance over time.
         </p>
@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
 
       {/* Score trend */}
       <div className="p-6 bg-slate-900 rounded-xl border border-slate-800">
-        <h3 className="text-white font-semibold mb-4">Score trend</h3>
+        <h3 className="text-fg font-semibold mb-4">Score trend</h3>
         {trendData.length === 0 ? (
           <p className="text-sm text-slate-500">
             Finish an interview to start seeing your score trend.
@@ -167,30 +167,30 @@ export default function AnalyticsPage() {
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="label" stroke="#64748b" fontSize={12} />
-              <YAxis domain={[0, 10]} stroke="#64748b" fontSize={12} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="label" stroke="var(--chart-axis)" fontSize={12} />
+              <YAxis domain={[0, 10]} stroke="var(--chart-axis)" fontSize={12} />
               <Tooltip
                 contentStyle={{
-                  background: "#0f172a",
-                  border: "1px solid #1e293b",
+                  background: "var(--chart-tooltip-bg)",
+                  border: "1px solid var(--chart-tooltip-border)",
                   borderRadius: 8,
-                  color: "#e2e8f0",
+                  color: "var(--chart-tooltip-fg)",
                 }}
                 labelFormatter={(_, payload) =>
                   payload?.[0]?.payload?.dateLabel ?? ""
                 }
-                formatter={(value, _name, item: any) => [
-                  `${value ?? 0}/10`,
+                formatter={(value: number, _name, item: any) => [
+                  `${value}/10`,
                   getTopicLabel(item.payload.topic),
                 ]}
               />
               <Line
                 type="monotone"
                 dataKey="score"
-                stroke="#3b82f6"
+                stroke="var(--chart-primary)"
                 strokeWidth={2}
-                dot={{ fill: "#3b82f6", r: 4 }}
+                dot={{ fill: "var(--chart-primary)", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -200,7 +200,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Topic breakdown */}
         <div className="p-6 bg-slate-900 rounded-xl border border-slate-800">
-          <h3 className="text-white font-semibold mb-4">
+          <h3 className="text-fg font-semibold mb-4">
             Average score by topic
           </h3>
           {topicData.length === 0 ? (
@@ -208,19 +208,19 @@ export default function AnalyticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={topicData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="label" stroke="#64748b" fontSize={12} />
-                <YAxis domain={[0, 10]} stroke="#64748b" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                <XAxis dataKey="label" stroke="var(--chart-axis)" fontSize={12} />
+                <YAxis domain={[0, 10]} stroke="var(--chart-axis)" fontSize={12} />
                 <Tooltip
                   contentStyle={{
-                    background: "#0f172a",
-                    border: "1px solid #1e293b",
+                    background: "var(--chart-tooltip-bg)",
+                    border: "1px solid var(--chart-tooltip-border)",
                     borderRadius: 8,
-                    color: "#e2e8f0",
+                    color: "var(--chart-tooltip-fg)",
                   }}
-                  formatter={(value) => [`${value ?? 0}/10`, "Avg score"]}
+                  formatter={(value: number) => [`${value}/10`, "Avg score"]}
                 />
-                <Bar dataKey="averageScore" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="averageScore" fill="var(--chart-primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -228,7 +228,7 @@ export default function AnalyticsPage() {
 
         {/* Difficulty breakdown */}
         <div className="p-6 bg-slate-900 rounded-xl border border-slate-800">
-          <h3 className="text-white font-semibold mb-4">
+          <h3 className="text-fg font-semibold mb-4">
             Average score by difficulty
           </h3>
           {data.difficultyBreakdown.length === 0 ? (
@@ -236,23 +236,23 @@ export default function AnalyticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={data.difficultyBreakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="difficulty" stroke="#64748b" fontSize={12} />
-                <YAxis domain={[0, 10]} stroke="#64748b" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                <XAxis dataKey="difficulty" stroke="var(--chart-axis)" fontSize={12} />
+                <YAxis domain={[0, 10]} stroke="var(--chart-axis)" fontSize={12} />
                 <Tooltip
                   contentStyle={{
-                    background: "#0f172a",
-                    border: "1px solid #1e293b",
+                    background: "var(--chart-tooltip-bg)",
+                    border: "1px solid var(--chart-tooltip-border)",
                     borderRadius: 8,
-                    color: "#e2e8f0",
+                    color: "var(--chart-tooltip-fg)",
                   }}
-                  formatter={(value) => [`${value ?? 0}/10`, "Avg score"]}
+                  formatter={(value: number) => [`${value}/10`, "Avg score"]}
                 />
                 <Bar dataKey="averageScore" radius={[6, 6, 0, 0]}>
                   {data.difficultyBreakdown.map((entry) => (
                     <Cell
                       key={entry.difficulty}
-                      fill={DIFFICULTY_COLOR[entry.difficulty] ?? "#3b82f6"}
+                      fill={DIFFICULTY_COLOR[entry.difficulty] ?? "var(--chart-primary)"}
                     />
                   ))}
                 </Bar>

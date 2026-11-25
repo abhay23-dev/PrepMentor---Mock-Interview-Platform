@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/store/authStore";
+import Logo from "@/components/Logo";
 import { Link, useNavigate } from "@tanstack/react-router";
 import axios from "axios";
 
@@ -42,7 +43,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950">
       <div className="w-full max-w-md rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800">
-        <h1 className="text-3xl font-bold text-white text-center">
+        <div className="mb-6 flex justify-center">
+          <Logo />
+        </div>
+
+        <h1 className="text-3xl font-bold text-fg text-center">
           Welcome Back
         </h1>
 
@@ -59,7 +64,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-fg outline-none focus:border-blue-500"
             />
           </div>
 
@@ -73,7 +78,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-fg outline-none focus:border-blue-500"
             />
           </div>
 

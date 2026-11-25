@@ -21,6 +21,7 @@ import { Route as GdSessionIdRouteImport } from './routes/gd.$sessionId'
 import { Route as FeedbackInterviewIdRouteImport } from './routes/feedback.$interviewId'
 import { Route as DashboardInterviewsRouteImport } from './routes/dashboard.interviews'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard.history'
+import { Route as DashboardDiscussionsRouteImport } from './routes/dashboard.discussions'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard.analytics'
 
 const SignupRoute = SignupRouteImport.update({
@@ -83,6 +84,11 @@ const DashboardHistoryRoute = DashboardHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardDiscussionsRoute = DashboardDiscussionsRouteImport.update({
+  id: '/discussions',
+  path: '/discussions',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
+  '/dashboard/discussions': typeof DashboardDiscussionsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
+  '/dashboard/discussions': typeof DashboardDiscussionsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
+  '/dashboard/discussions': typeof DashboardDiscussionsRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/interviews': typeof DashboardInterviewsRoute
   '/feedback/$interviewId': typeof FeedbackInterviewIdRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard/analytics'
+    | '/dashboard/discussions'
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard/analytics'
+    | '/dashboard/discussions'
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard/analytics'
+    | '/dashboard/discussions'
     | '/dashboard/history'
     | '/dashboard/interviews'
     | '/feedback/$interviewId'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHistoryRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/discussions': {
+      id: '/dashboard/discussions'
+      path: '/discussions'
+      fullPath: '/dashboard/discussions'
+      preLoaderRoute: typeof DashboardDiscussionsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/analytics': {
       id: '/dashboard/analytics'
       path: '/analytics'
@@ -291,6 +310,7 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
+  DashboardDiscussionsRoute: typeof DashboardDiscussionsRoute
   DashboardHistoryRoute: typeof DashboardHistoryRoute
   DashboardInterviewsRoute: typeof DashboardInterviewsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -298,6 +318,7 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
+  DashboardDiscussionsRoute: DashboardDiscussionsRoute,
   DashboardHistoryRoute: DashboardHistoryRoute,
   DashboardInterviewsRoute: DashboardInterviewsRoute,
   DashboardIndexRoute: DashboardIndexRoute,

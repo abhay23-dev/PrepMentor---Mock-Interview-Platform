@@ -70,14 +70,14 @@ export default function NewGDPage() {
       <div className="w-full max-w-xl rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800">
         <button
           type="button"
-          onClick={() => navigate({ to: "/dashboard" })}
-          className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition"
+          onClick={() => navigate({ to: "/dashboard/discussions" })}
+          className="flex items-center gap-1 text-sm text-slate-400 hover:text-fg transition"
         >
           <ArrowLeft size={16} />
-          Dashboard
+          Group Discussions
         </button>
 
-        <h1 className="mt-4 text-3xl font-bold text-white text-center">
+        <h1 className="mt-4 text-3xl font-bold text-fg text-center">
           Start a Group Discussion
         </h1>
         <p className="text-slate-400 text-center mt-2">
@@ -93,7 +93,7 @@ export default function NewGDPage() {
             rows={2}
             maxLength={150}
             placeholder="e.g. Is remote work better than working from the office?"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500 resize-none"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-fg outline-none focus:border-blue-500 resize-none"
           />
           <div className="mt-3 flex flex-wrap gap-2">
             {SUGGESTED_TOPICS.map((suggestion) => (

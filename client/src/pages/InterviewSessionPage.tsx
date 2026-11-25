@@ -115,7 +115,7 @@ export default function InterviewSessionPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
         <div className="w-full max-w-md rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800 text-center">
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-fg">
             Interview session lost
           </h1>
           <p className="text-slate-400 mt-2">
@@ -137,7 +137,7 @@ export default function InterviewSessionPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
         <div className="w-full max-w-md rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800 text-center">
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-fg">
             Interview Complete
           </h1>
           <p className="text-slate-400 mt-2">
@@ -186,7 +186,7 @@ export default function InterviewSessionPage() {
         </div>
 
         <div className="flex items-start justify-between gap-3 mt-4">
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="text-xl font-semibold text-fg">
             {currentQuestion?.questionText}
           </h1>
 
@@ -198,7 +198,7 @@ export default function InterviewSessionPage() {
               className={`shrink-0 rounded-full p-2 transition ${
                 isSpeaking
                   ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-fg"
               }`}
             >
               {isSpeaking ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -214,7 +214,7 @@ export default function InterviewSessionPage() {
             className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
               inputMode === "text"
                 ? "bg-blue-600 text-white"
-                : "text-slate-400 hover:text-white"
+                : "text-slate-400 hover:text-fg"
             }`}
           >
             <Keyboard size={16} />
@@ -232,7 +232,7 @@ export default function InterviewSessionPage() {
             className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
               inputMode === "voice"
                 ? "bg-blue-600 text-white"
-                : "text-slate-400 hover:text-white"
+                : "text-slate-400 hover:text-fg"
             } ${!sttSupported ? "opacity-40 cursor-not-allowed" : ""}`}
           >
             <Mic size={16} />
@@ -280,7 +280,7 @@ export default function InterviewSessionPage() {
               ? "Your spoken answer will appear here — feel free to edit it too."
               : "Type your answer here..."
           }
-          className="w-full mt-4 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500 resize-none"
+          className="w-full mt-4 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-fg outline-none focus:border-blue-500 resize-none"
         />
 
         <button

@@ -39,13 +39,13 @@ function Avatar({
   return (
     <div className="flex w-24 flex-col items-center gap-2">
       <div
-        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-white transition ${colorClass} ${
+        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-fg transition ${colorClass} ${
           active ? "ring-4 ring-blue-400/80 animate-pulse scale-110" : "opacity-80"
         }`}
       >
         {name.charAt(0).toUpperCase()}
       </div>
-      <p className="max-w-full truncate text-sm font-medium text-white">{name}</p>
+      <p className="max-w-full truncate text-sm font-medium text-fg">{name}</p>
       {label && (
         <p className="max-w-full truncate text-xs text-slate-500">{label}</p>
       )}
@@ -67,17 +67,19 @@ function ScoreCard({ label, value }: { label: string; value: number }) {
 
 function ResultsView({
   feedback,
-  onBack,
+  onDiscussions,
+  onDashboard,
   onNew,
 }: {
   feedback: GDFeedback;
-  onBack: () => void;
+  onDiscussions: () => void;
+  onDashboard: () => void;
   onNew: () => void;
 }) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-center">
-        <h2 className="text-2xl font-bold text-white">Discussion Complete</h2>
+        <h2 className="text-2xl font-bold text-fg">Discussion Complete</h2>
         <p className="mt-4 text-sm text-slate-400">Overall Score</p>
         <p className="mt-1 text-5xl font-bold text-blue-400">
           {feedback.overallScore}
@@ -93,7 +95,7 @@ function ResultsView({
       </div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-        <h3 className="font-semibold text-white">Summary</h3>
+        <h3 className="font-semibold text-fg">Summary</h3>
         <p className="mt-2 text-slate-300">{feedback.summary}</p>
       </div>
 
@@ -132,10 +134,16 @@ function ResultsView({
           Start Another Discussion
         </button>
         <button
-          onClick={onBack}
+          onClick={onDiscussions}
           className="flex-1 rounded-lg border border-slate-700 py-3 font-semibold text-slate-200 transition hover:bg-slate-800"
         >
-          Back to Dashboard
+          All Discussions
+        </button>
+        <button
+          onClick={onDashboard}
+          className="flex-1 rounded-lg border border-slate-700 py-3 font-semibold text-slate-200 transition hover:bg-slate-800"
+        >
+          Dashboard
         </button>
       </div>
     </div>
@@ -224,6 +232,11 @@ export default function GDSessionPage() {
     navigate({ to: "/gd/new" });
   };
 
+  const goToDiscussions = () => {
+    reset();
+    navigate({ to: "/dashboard/discussions" });
+  };
+
   const handleEnd = () => {
     if (window.confirm("End the discussion now and get your feedback?")) {
       void endSession();
@@ -242,7 +255,7 @@ export default function GDSessionPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
         <div className="w-full max-w-md rounded-xl bg-slate-900 p-8 shadow-xl border border-slate-800 text-center">
-          <h1 className="text-2xl font-bold text-white">Couldn't open this discussion</h1>
+          <h1 className="text-2xl font-bold text-fg">Couldn't open this discussion</h1>
           <p className="mt-2 text-slate-400">{error}</p>
           <button
             onClick={goToDashboard}
@@ -283,6 +296,43 @@ export default function GDSessionPage() {
 
   const lowTime = remainingSeconds <= 30;
 
+  const transcriptCard = (
+    <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+      <h2 className="text-sm font-semibold text-slate-400">Transcript</h2>
+      <div className="mt-3 max-h-80 space-y-3 overflow-y-auto pr-1">
+        {messages.length === 0 && (
+          <p className="text-sm text-slate-500">
+            The discussion will appear here.
+          </p>
+        )}
+        {messages.map((message) => {
+          const isUser = message.speaker === "user";
+          return (
+            <div
+              key={message.id}
+              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                  isUser
+                    ? "bg-blue-600/15 text-fg"
+                    : "bg-slate-800 text-slate-200"
+                }`}
+              >
+                <p className="text-xs font-semibold opacity-70">
+                  {isUser ? "You" : message.speakerName}
+                </p>
+                <p className="mt-0.5 text-sm">{message.text}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={transcriptEndRef} />
+      </div>
+    </div>
+  );
+
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6">
       <div className="mx-auto max-w-4xl space-y-5">
@@ -292,20 +342,22 @@ export default function GDSessionPage() {
             <p className="text-xs uppercase tracking-wide text-slate-500">
               Group Discussion
             </p>
-            <h1 className="truncate text-lg font-semibold text-white">{topic}</h1>
+            <h1 className="truncate text-lg font-semibold text-fg">{topic}</h1>
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <div
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
-                lowTime && phase === "RUNNING"
-                  ? "border-red-500/50 bg-red-500/10 text-red-400"
-                  : "border-slate-700 bg-slate-900 text-slate-200"
-              }`}
-            >
-              <Clock size={16} />
-              {formatTime(remainingSeconds)}
-            </div>
+            {phase !== "FINISHED" && (
+              <div
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                  lowTime && phase === "RUNNING"
+                    ? "border-red-500/50 bg-red-500/10 text-red-400"
+                    : "border-slate-700 bg-slate-900 text-slate-200"
+                }`}
+              >
+                <Clock size={16} />
+                {formatTime(remainingSeconds)}
+              </div>
+            )}
             {phase === "RUNNING" && (
               <button
                 onClick={handleEnd}
@@ -318,11 +370,15 @@ export default function GDSessionPage() {
         </div>
 
         {phase === "FINISHED" && feedback ? (
-          <ResultsView
-            feedback={feedback}
-            onBack={goToDashboard}
-            onNew={startAnother}
-          />
+          <>
+            <ResultsView
+              feedback={feedback}
+              onDiscussions={goToDiscussions}
+              onDashboard={goToDashboard}
+              onNew={startAnother}
+            />
+            {transcriptCard}
+          </>
         ) : (
           <>
             {!sttSupported && (
@@ -346,7 +402,7 @@ export default function GDSessionPage() {
                 ))}
                 <Avatar
                   name={userName}
-                  colorClass="bg-slate-600"
+                  colorClass="bg-slate-500"
                   active={activeSpeakerId === "user"}
                   label="You"
                 />
@@ -357,7 +413,7 @@ export default function GDSessionPage() {
                 {phase === "RUNNING" && speakingPersona && (
                   <button
                     onClick={skipSpeech}
-                    className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                    className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-800 hover:text-fg"
                   >
                     <SkipForward size={12} />
                     Skip
@@ -404,7 +460,7 @@ export default function GDSessionPage() {
                       if (e.key === "Enter") handleSendTyped();
                     }}
                     placeholder="Or type your reply and press Enter"
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white outline-none focus:border-blue-500"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-fg outline-none focus:border-blue-500"
                   />
                   <button
                     onClick={handleSendTyped}
@@ -493,40 +549,7 @@ export default function GDSessionPage() {
               </div>
             )}
 
-            {/* Transcript */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-sm font-semibold text-slate-400">Transcript</h2>
-              <div className="mt-3 max-h-80 space-y-3 overflow-y-auto pr-1">
-                {messages.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    The discussion will appear here.
-                  </p>
-                )}
-                {messages.map((message) => {
-                  const isUser = message.speaker === "user";
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                          isUser
-                            ? "bg-blue-600/20 text-blue-100"
-                            : "bg-slate-800 text-slate-200"
-                        }`}
-                      >
-                        <p className="text-xs font-semibold opacity-70">
-                          {isUser ? "You" : message.speakerName}
-                        </p>
-                        <p className="mt-0.5 text-sm">{message.text}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={transcriptEndRef} />
-              </div>
-            </div>
+            {transcriptCard}
           </>
         )}
       </div>
