@@ -6,6 +6,7 @@ export interface IGDMessage extends Document {
   speakerName: string;
   text: string;
   timestamp: Date;
+  interrupted: boolean; // the speaker was cut off before finishing
 }
 
 const gdMessageSchema = new Schema<IGDMessage>({
@@ -29,6 +30,10 @@ const gdMessageSchema = new Schema<IGDMessage>({
   timestamp: {
     type: Date,
     default: Date.now,
+  },
+  interrupted: {
+    type: Boolean,
+    default: false,
   },
 });
 

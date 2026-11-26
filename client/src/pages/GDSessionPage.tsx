@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Clock, Mic, Send, SkipForward } from "lucide-react";
+import { Clock, Mic, MicOff, Send, SkipForward } from "lucide-react";
 import { useGDStore } from "@/store/gdStore";
 import { isSTTSupported } from "@/utils/speech";
 import type { GDFeedback } from "@/types/gd.types";
@@ -29,25 +29,37 @@ function Avatar({
   name,
   colorClass,
   active,
+  wants = false,
   label,
 }: {
   name: string;
   colorClass: string;
-  active: boolean;
+  active: boolean; // currently speaking
+  wants?: boolean; // trying to get a word in
   label?: string;
 }) {
   return (
     <div className="flex w-24 flex-col items-center gap-2">
       <div
-        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-fg transition ${colorClass} ${
-          active ? "ring-4 ring-blue-400/80 animate-pulse scale-110" : "opacity-80"
+        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-white transition ${colorClass} ${
+          active
+            ? "ring-4 ring-blue-400/80 animate-pulse scale-110"
+            : wants
+              ? "ring-4 ring-amber-400/80 animate-pulse"
+              : "opacity-80"
         }`}
       >
         {name.charAt(0).toUpperCase()}
       </div>
       <p className="max-w-full truncate text-sm font-medium text-fg">{name}</p>
       {label && (
-        <p className="max-w-full truncate text-xs text-slate-500">{label}</p>
+        <p
+          className={`max-w-full truncate text-xs ${
+            wants ? "font-medium text-amber-400" : "text-slate-500"
+          }`}
+        >
+          {label}
+        </p>
       )}
     </div>
   );
@@ -164,19 +176,23 @@ export default function GDSessionPage() {
     phase,
     remainingSeconds,
     activeSpeakerId,
+    wantsToSpeakId,
     isThinking,
-    isUserTurn,
+    userSpeaking,
+    talkingOver,
+    invitingUser,
     isListening,
     interimText,
     micError,
+    bargeInEnabled,
     needsGesture,
     error,
     loadSession,
     begin,
-    finishSpeaking,
-    skipTurn,
+    sendNow,
     skipSpeech,
     submitTyped,
+    setBargeIn,
     endSession,
     reset,
   } = useGDStore();
@@ -217,10 +233,6 @@ export default function GDSessionPage() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
-
-  useEffect(() => {
-    if (!isUserTurn) setTyped("");
-  }, [isUserTurn]);
 
   const goToDashboard = () => {
     reset();
@@ -276,23 +288,39 @@ export default function GDSessionPage() {
     );
   }
 
-  const speakingPersona =
-    activeSpeakerId && activeSpeakerId !== "user"
-      ? personas.find((p) => p.id === activeSpeakerId)
-      : null;
+  const speakingPersona = activeSpeakerId
+    ? personas.find((p) => p.id === activeSpeakerId)
+    : undefined;
+  const wantingPersona = wantsToSpeakId
+    ? personas.find((p) => p.id === wantsToSpeakId)
+    : undefined;
 
   let statusText = "";
   if (phase === "RUNNING") {
-    if (isUserTurn) {
-      statusText = isListening
-        ? "Your turn. Speak now, I'm listening."
-        : "Your turn. Speak or type your reply.";
+    if (userSpeaking && talkingOver && speakingPersona) {
+      statusText = `You're talking over ${speakingPersona.name}`;
+    } else if (userSpeaking) {
+      statusText = "You're speaking...";
+    } else if (speakingPersona && wantingPersona) {
+      statusText = `${speakingPersona.name} is speaking. ${wantingPersona.name} wants to speak.`;
     } else if (speakingPersona) {
       statusText = `${speakingPersona.name} is speaking...`;
+    } else if (invitingUser) {
+      statusText = "They're waiting for your reply...";
     } else if (isThinking) {
       statusText = "Waiting for the next participant...";
     }
   }
+
+  const micLabel = !sttSupported
+    ? "Typing mode"
+    : micError
+      ? "Microphone unavailable"
+      : isListening
+        ? userSpeaking
+          ? "You're speaking"
+          : "Mic is on"
+        : "Starting microphone...";
 
   const lowTime = remainingSeconds <= 30;
 
@@ -322,7 +350,14 @@ export default function GDSessionPage() {
                 <p className="text-xs font-semibold opacity-70">
                   {isUser ? "You" : message.speakerName}
                 </p>
-                <p className="mt-0.5 text-sm">{message.text}</p>
+                <p className="mt-0.5 text-sm">
+                  {message.text}
+                  {message.interrupted && (
+                    <span className="ml-2 text-[10px] font-semibold tracking-wide text-amber-400 uppercase">
+                      interrupted
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
           );
@@ -397,13 +432,18 @@ export default function GDSessionPage() {
                     name={persona.name}
                     colorClass={AVATAR_COLORS[index % AVATAR_COLORS.length]}
                     active={activeSpeakerId === persona.id}
-                    label={persona.stance}
+                    wants={wantsToSpeakId === persona.id}
+                    label={
+                      wantsToSpeakId === persona.id
+                        ? "wants to speak"
+                        : persona.stance
+                    }
                   />
                 ))}
                 <Avatar
                   name={userName}
                   colorClass="bg-slate-500"
-                  active={activeSpeakerId === "user"}
+                  active={userSpeaking}
                   label="You"
                 />
               </div>
@@ -428,28 +468,71 @@ export default function GDSessionPage() {
               )}
             </div>
 
-            {/* User's turn */}
-            {phase === "RUNNING" && isUserTurn && (
-              <div className="rounded-xl border border-blue-500/40 bg-blue-500/5 p-5">
-                <p className="text-sm font-semibold text-blue-300">Your turn</p>
+            {/* Connection problem while the discussion keeps running */}
+            {phase === "RUNNING" && error && (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {error}
+              </p>
+            )}
+
+            {/* Always-on voice bar: there are no turns, jump in any time */}
+            {phase === "RUNNING" && (
+              <div
+                className={`rounded-xl border p-5 transition ${
+                  userSpeaking
+                    ? "border-blue-500/50 bg-blue-500/5"
+                    : "border-slate-800 bg-slate-900"
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                        isListening
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-slate-800 text-slate-500"
+                      }`}
+                    >
+                      {isListening ? (
+                        <Mic
+                          size={17}
+                          className={userSpeaking ? "animate-pulse" : ""}
+                        />
+                      ) : (
+                        <MicOff size={17} />
+                      )}
+                    </span>
+                    <p className="text-sm font-semibold text-fg">{micLabel}</p>
+                  </div>
+
+                  {sttSupported && (
+                    <label
+                      className="flex cursor-pointer items-center gap-2 text-sm text-slate-400"
+                      title="Turn this off if you are not using headphones: the microphone will ignore the AI voices while they speak."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bargeInEnabled}
+                        onChange={(e) => setBargeIn(e.target.checked)}
+                        className="h-4 w-4 accent-blue-600"
+                      />
+                      Allow interruptions
+                      <span className="text-xs text-slate-500">
+                        (headphones recommended)
+                      </span>
+                    </label>
+                  )}
+                </div>
 
                 {micError && (
-                  <p className="mt-2 text-sm text-amber-400">{micError}</p>
+                  <p className="mt-3 text-sm text-amber-400">{micError}</p>
                 )}
 
                 {sttSupported && !micError && (
-                  <div className="mt-3 flex items-start gap-3">
-                    <Mic
-                      size={18}
-                      className={`mt-0.5 shrink-0 ${
-                        isListening ? "animate-pulse text-red-400" : "text-slate-500"
-                      }`}
-                    />
-                    <p className="min-h-6 text-slate-300 italic">
-                      {interimText ||
-                        (isListening ? "Listening..." : "Starting microphone...")}
-                    </p>
-                  </div>
+                  <p className="mt-3 min-h-6 text-slate-300 italic">
+                    {interimText ||
+                      "Speak any time. Jump in when there's a gap, or cut in if you disagree."}
+                  </p>
                 )}
 
                 <div className="mt-4 flex gap-2">
@@ -459,9 +542,17 @@ export default function GDSessionPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSendTyped();
                     }}
-                    placeholder="Or type your reply and press Enter"
+                    placeholder="Or type your point and press Enter"
                     className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-fg outline-none focus:border-blue-500"
                   />
+                  {userSpeaking && (
+                    <button
+                      onClick={sendNow}
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+                    >
+                      Send now
+                    </button>
+                  )}
                   <button
                     onClick={handleSendTyped}
                     disabled={!typed.trim()}
@@ -469,23 +560,6 @@ export default function GDSessionPage() {
                   >
                     <Send size={16} />
                     Send
-                  </button>
-                </div>
-
-                <div className="mt-3 flex gap-3">
-                  {sttSupported && !micError && (
-                    <button
-                      onClick={finishSpeaking}
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-                    >
-                      Done speaking
-                    </button>
-                  )}
-                  <button
-                    onClick={skipTurn}
-                    className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-                  >
-                    Skip my turn
                   </button>
                 </div>
               </div>

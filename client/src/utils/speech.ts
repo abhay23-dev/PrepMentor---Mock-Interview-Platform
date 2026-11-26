@@ -299,3 +299,298 @@ export const listenForSpeech = (options: ListenOptions): ListenHandle => {
     },
   };
 };
+
+// ---------------------------------------------------------------------------
+// Sentence helpers
+// ---------------------------------------------------------------------------
+
+// IMPORTANT: identical to splitSentences() in the server's gdOrchestrator.ts.
+// The server tells the client "cut the current line after sentence N", so both
+// sides must split text the same way.
+export const splitSentences = (text: string): string[] => {
+  const parts =
+    text.replace(/\s+/g, " ").trim().match(/[^.!?]+(?:[.!?]+["')\]]*|$)/g) ?? [];
+  return parts.map((p) => p.trim()).filter(Boolean);
+};
+
+const toWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s']/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+// Fraction (0..1) of the heard words that also appear in the reference text.
+// Used to tell "the mic is picking up the AI's own voice" from real speech.
+export const echoOverlap = (heard: string, reference: string): number => {
+  const heardWords = toWords(heard);
+  if (heardWords.length === 0) return 0;
+  const referenceWords = new Set(toWords(reference));
+  return (
+    heardWords.filter((word) => referenceWords.has(word)).length /
+    heardWords.length
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Speaking a line sentence by sentence
+//
+// Sentences are spoken as separate utterances so a line can be stopped at a
+// clean boundary (browsers give no reliable way to stop "at the end of the
+// current word"), and so we always know exactly how much was actually said.
+// ---------------------------------------------------------------------------
+
+const WORD_MS = 380; // rough speaking speed, only used to estimate a cut-off point
+
+export interface SequenceResult {
+  completed: boolean; // every sentence was spoken
+  spokenText: string; // what was actually said (a cut sentence is estimated)
+  sentencesDone: number;
+}
+
+export interface SequenceHandle {
+  done: Promise<SequenceResult>;
+  sentenceCount: number;
+  getSpoken: () => { text: string; sentencesDone: number };
+  stopNow: () => void; // cut the audio immediately
+  stopAfterSentence: (count: number) => void; // stop once `count` sentences are done
+}
+
+export const speakSequence = (
+  sentences: string[],
+  options: { voiceIndex?: number } = {},
+): SequenceHandle => {
+  let doneCount = 0;
+  let stopped = false;
+  let stopAt = Infinity;
+  let current: SpeechHandle | null = null;
+  let currentIndex = -1;
+  let currentStart = 0;
+  let partialAtStop = "";
+
+  const partialOfCurrent = () => {
+    if (currentIndex < 0) return "";
+    const words = sentences[currentIndex].split(/\s+/).filter(Boolean);
+    const elapsed = Date.now() - currentStart;
+    // never claim the whole sentence was said if it was cut
+    const spokenWords = Math.min(words.length - 1, Math.floor(elapsed / WORD_MS));
+    return spokenWords >= 2 ? words.slice(0, spokenWords).join(" ") : "";
+  };
+
+  const spokenText = () =>
+    [sentences.slice(0, doneCount).join(" "), partialAtStop]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+  const done = (async (): Promise<SequenceResult> => {
+    for (let i = 0; i < sentences.length; i++) {
+      if (stopped || doneCount >= stopAt) break;
+      currentIndex = i;
+      currentStart = Date.now();
+      current = speakText(sentences[i], { voiceIndex: options.voiceIndex });
+      await current.promise;
+      if (stopped) break;
+      doneCount += 1;
+    }
+    current = null;
+    currentIndex = -1;
+    return {
+      completed: !stopped && doneCount >= sentences.length,
+      spokenText: spokenText(),
+      sentencesDone: doneCount,
+    };
+  })();
+
+  return {
+    done,
+    sentenceCount: sentences.length,
+    getSpoken: () => ({ text: spokenText(), sentencesDone: doneCount }),
+    stopNow: () => {
+      if (stopped) return;
+      partialAtStop = partialOfCurrent();
+      stopped = true;
+      current?.cancel();
+    },
+    stopAfterSentence: (count) => {
+      stopAt = Math.min(stopAt, count);
+    },
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Always-on microphone
+//
+// Unlike listenForSpeech (one answer per call), this keeps the mic open for the
+// whole discussion, restarts itself when the browser ends a session, and
+// reports each finished utterance after a pause in speech.
+// ---------------------------------------------------------------------------
+
+export interface ContinuousListenerOptions {
+  lang?: string;
+  silenceMs?: number; // a pause this long ends the utterance
+  onState?: (listening: boolean) => void;
+  // Called on every recognition result with the utterance heard so far.
+  onInterim: (text: string, startsNewUtterance: boolean) => void;
+  onCommit: (text: string) => void; // a finished utterance
+  onError?: (code: string) => void; // mic unusable
+}
+
+export interface ContinuousListener {
+  start: () => void;
+  stop: () => void;
+  commitNow: () => void; // finish the current utterance immediately
+  discard: () => void; // throw away what was heard so far (e.g. echo)
+}
+
+export const createContinuousListener = (
+  options: ContinuousListenerOptions,
+): ContinuousListener => {
+  const Ctor =
+    typeof window === "undefined"
+      ? undefined
+      : (window.SpeechRecognition ?? window.webkitSpeechRecognition);
+
+  let recognition: SpeechRecognition | null = null;
+  let active = false;
+  let finalText = "";
+  let interimText = "";
+  let utteranceOpen = false;
+  let consecutiveErrors = 0;
+  let silenceTimer: ReturnType<typeof setTimeout> | undefined;
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const getText = () => `${finalText} ${interimText}`.trim();
+
+  const clearSilence = () => {
+    if (silenceTimer) clearTimeout(silenceTimer);
+  };
+
+  const resetBuffers = () => {
+    clearSilence();
+    finalText = "";
+    interimText = "";
+    utteranceOpen = false;
+  };
+
+  const detach = () => {
+    if (!recognition) return;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    recognition.onstart = null;
+  };
+
+  const startRecognition = () => {
+    if (!Ctor || !active) return;
+    detach();
+
+    const instance = new Ctor();
+    recognition = instance;
+    instance.lang = options.lang ?? GD_STT_LANG;
+    instance.continuous = true;
+    instance.interimResults = true;
+
+    instance.onstart = () => {
+      consecutiveErrors = 0;
+      options.onState?.(true);
+    };
+
+    instance.onresult = (event) => {
+      let nextInterim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) {
+          finalText = `${finalText} ${transcript}`.trim();
+        } else {
+          nextInterim += transcript;
+        }
+      }
+      interimText = nextInterim;
+
+      const startsNew = !utteranceOpen;
+      utteranceOpen = true;
+      options.onInterim(getText(), startsNew);
+
+      clearSilence();
+      silenceTimer = setTimeout(commit, options.silenceMs ?? 1600);
+    };
+
+    instance.onerror = (event) => {
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      consecutiveErrors += 1;
+      const fatal =
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed" ||
+        consecutiveErrors >= 3;
+      if (fatal) {
+        active = false;
+        options.onState?.(false);
+        options.onError?.(event.error);
+      }
+    };
+
+    // Browsers end a session after a while (or after silence): start another.
+    instance.onend = () => {
+      options.onState?.(false);
+      if (active) {
+        restartTimer = setTimeout(startRecognition, 200);
+      }
+    };
+
+    try {
+      instance.start();
+    } catch {
+      // already started: harmless
+    }
+  };
+
+  // Abort the current session so the browser's result buffer is cleared; the
+  // onend handler then starts a fresh one.
+  const restartFresh = () => {
+    try {
+      recognition?.abort();
+    } catch {
+      // already stopped
+    }
+  };
+
+  function commit() {
+    const text = getText();
+    resetBuffers();
+    restartFresh();
+    if (text) options.onCommit(text);
+  }
+
+  return {
+    start: () => {
+      if (!Ctor) {
+        options.onError?.("unsupported");
+        return;
+      }
+      active = true;
+      startRecognition();
+    },
+    stop: () => {
+      active = false;
+      if (restartTimer) clearTimeout(restartTimer);
+      resetBuffers();
+      detach();
+      try {
+        recognition?.abort();
+      } catch {
+        // already stopped
+      }
+      recognition = null;
+      options.onState?.(false);
+    },
+    commitNow: () => {
+      if (getText()) commit();
+    },
+    discard: () => {
+      resetBuffers();
+      restartFresh();
+    },
+  };
+};

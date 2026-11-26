@@ -6,6 +6,7 @@ export interface GDPersona {
   personalityTrait: string;
   stance: string;
   voiceIndex: number;
+  assertiveness: number; // 0..1: how likely to interrupt / hold the floor
 }
 
 export interface GDMessageItem {
@@ -14,6 +15,7 @@ export interface GDMessageItem {
   speakerName: string;
   text: string;
   timestamp: string;
+  interrupted?: boolean; // the speaker was cut off before finishing
 }
 
 export interface GDFeedback {
@@ -43,19 +45,35 @@ export interface StartGDResponse {
   personas: GDPersona[];
 }
 
+// How a line enters relative to the line still being spoken.
+export interface InterruptPlan {
+  interrupt: boolean; // this speaker tries to cut in
+  succeeds: boolean; // the current speaker yields (false = they hold the floor)
+  atSentence: number; // cut after this many sentences of the current line
+}
+
 export interface NextTurnResponse {
   finished: boolean;
   remainingSeconds: number;
-  speaker?: string; // persona id or "user"
+  speaker?: string; // always an AI persona id
   speakerName?: string;
   text?: string;
   messageId?: string;
   wrapUp?: boolean;
+  plan?: InterruptPlan;
+  invitesUser?: boolean; // the line ends with a direct question to the user
+}
+
+// What was actually heard when an AI line was cut off.
+export interface InterruptedInfo {
+  messageId: string;
+  spokenText: string;
 }
 
 export interface SendMessageRequest {
   text?: string;
-  skipped?: boolean;
+  interrupted?: InterruptedInfo;
+  discard?: string[]; // prefetched lines that were never spoken
 }
 
 export interface SendMessageResponse {
@@ -115,12 +133,16 @@ export interface GDStoreState {
   remainingSeconds: number;
   wrapUpWarned: boolean;
 
-  activeSpeakerId: string | null; // persona id, "user", or null
+  activeSpeakerId: string | null; // persona currently speaking, or null
+  wantsToSpeakId: string | null; // persona trying to cut in
   isThinking: boolean; // waiting on the AI to produce the next line
-  isUserTurn: boolean;
-  isListening: boolean;
+  userSpeaking: boolean; // the user is talking (mic picked up real speech)
+  talkingOver: boolean; // the user is talking while an AI holds the floor
+  invitingUser: boolean; // an AI just asked the user a question and is waiting
+  isListening: boolean; // microphone is on
   interimText: string;
   micError: string | null;
+  bargeInEnabled: boolean; // false = mic ignored while an AI speaks (no headphones)
 
   // true after a page reload: browsers only allow audio / mic after a click,
   // so the user must press "Resume" before the loop can start.
@@ -138,10 +160,10 @@ export interface GDStoreActions {
   loadSession: (sessionId: string) => Promise<void>;
   begin: () => void;
   stopLoop: () => void;
-  finishSpeaking: () => void; // "Done" button
-  skipTurn: () => void;
-  skipSpeech: () => void; // skip the AI line currently being spoken
+  sendNow: () => void; // finish what the user is saying right now
+  skipSpeech: () => void; // stop the AI line currently being spoken
   submitTyped: (text: string) => void;
+  setBargeIn: (enabled: boolean) => void;
   endSession: () => Promise<void>;
   reset: () => void;
 }

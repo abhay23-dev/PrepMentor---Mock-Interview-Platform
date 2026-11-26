@@ -17,11 +17,16 @@ import {
 } from "../services/gdAiService.js";
 import {
   CONTEXT_MESSAGES,
+  InterruptPlan,
   MAX_AI_TURNS_PER_SESSION,
   MessageLite,
+  NO_INTERRUPT,
   PersonaLite,
   WRAP_UP_SECONDS,
   pickNextSpeaker,
+  planInterruption,
+  shouldInviteUser,
+  splitSentences,
 } from "../services/gdOrchestrator.js";
 
 // ---------------------------------------------------------------------------
@@ -34,10 +39,10 @@ const MIN_TIMER_SECONDS = 60;
 const MAX_TIMER_SECONDS = 900;
 const MAX_USER_MESSAGE_CHARS = 1500;
 
-const devDetail = (error: unknown) =>
-  process.env.NODE_ENV === "development" && error instanceof Error
-    ? ` (${error.message})`
-    : "";
+// Appends the real cause (e.g. the Groq error) to the message so failures are
+// diagnosable from the browser. Trimmed to keep it readable.
+const errorDetail = (error: unknown) =>
+  error instanceof Error ? ` (${error.message.slice(0, 300)})` : "";
 
 const remainingSecondsFor = (session: IGDSession) =>
   Math.max(
@@ -53,6 +58,7 @@ const toPersonaLite = (doc: IGDPersona): PersonaLite => ({
   personalityTrait: doc.personalityTrait,
   stance: doc.stance,
   voiceIndex: doc.voiceIndex,
+  assertiveness: doc.assertiveness ?? 0.5,
 });
 
 const getOwnedSession = async (id: string, userId: string) => {
@@ -133,17 +139,105 @@ const finalizePersonas = (
 interface TurnState {
   aiTurnsSinceUser: number;
   totalAiTurns: number;
+  lastInterruptTurn: number;
+  interruptsUsed: number;
 }
+
+const turnStateOf = (
+  session: IGDSession,
+  overrides: Partial<TurnState> = {},
+): TurnState => ({
+  aiTurnsSinceUser: session.aiTurnsSinceUser,
+  totalAiTurns: session.totalAiTurns,
+  lastInterruptTurn: session.lastInterruptTurn ?? -100,
+  interruptsUsed: session.interruptsUsed ?? 0,
+  ...overrides,
+});
 
 interface NextTurnResult {
   finished: boolean;
   remainingSeconds: number;
-  speaker?: string; // persona id or "user"
+  speaker?: string; // always an AI persona id: the user takes the floor themselves
   speakerName?: string;
   text?: string;
   messageId?: string;
   wrapUp?: boolean;
+  // How this line enters relative to the line currently being spoken.
+  plan?: InterruptPlan;
+  // This line ends by asking the user a direct question, so the client waits
+  // a little longer for them before the next AI speaks.
+  invitesUser?: boolean;
 }
+
+// What the client heard vs. what the server stored. If an AI was cut off, the
+// client sends how much was actually spoken so later context is accurate; if a
+// prefetched line was never spoken (the user took the floor), it's discarded.
+interface InterruptedInfo {
+  messageId: string;
+  spokenText: string;
+}
+
+const readInterrupted = (raw: unknown): InterruptedInfo | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const { messageId, spokenText } = raw as Record<string, unknown>;
+  if (typeof messageId !== "string" || !Types.ObjectId.isValid(messageId)) {
+    return null;
+  }
+  if (typeof spokenText !== "string") return null;
+  return { messageId, spokenText: spokenText.trim().slice(0, 600) };
+};
+
+const readIdList = (raw: unknown): string[] =>
+  Array.isArray(raw)
+    ? raw
+        .filter((id): id is string => typeof id === "string" && Types.ObjectId.isValid(id))
+        .slice(0, 5)
+    : [];
+
+const applyClientCorrections = async (
+  session: IGDSession,
+  interrupted: InterruptedInfo | null,
+  discardIds: string[],
+) => {
+  const work: Promise<unknown>[] = [];
+
+  if (interrupted) {
+    work.push(
+      (async () => {
+        const message = await GDMessage.findOne({
+          _id: interrupted.messageId,
+          sessionId: session._id,
+          speaker: { $ne: "user" },
+        });
+        if (!message) return;
+
+        // Cut off before a single word was heard: it was never really said.
+        if (interrupted.spokenText.length < 2) {
+          await GDMessage.deleteOne({ _id: message._id });
+          return;
+        }
+
+        const spoken = interrupted.spokenText.slice(0, message.text.length);
+        await GDMessage.updateOne(
+          { _id: message._id },
+          { $set: { text: `${spoken} —`, interrupted: true } },
+        );
+      })(),
+    );
+  }
+
+  if (discardIds.length) {
+    work.push(
+      GDMessage.deleteMany({
+        _id: { $in: discardIds },
+        sessionId: session._id,
+        speaker: { $ne: "user" },
+      }),
+    );
+  }
+
+  if (work.length) await Promise.all(work);
+};
 
 const buildNextTurn = async (
   session: IGDSession,
@@ -177,19 +271,34 @@ const buildNextTurn = async (
     text: m.text,
   }));
 
-  const choice = pickNextSpeaker(personas, recent, state.aiTurnsSinceUser);
-
-  if (choice.type === "user") {
-    return {
-      finished: false,
-      remainingSeconds,
-      speaker: "user",
-      speakerName: session.userName,
-    };
-  }
-
-  const { persona } = choice;
+  const persona = pickNextSpeaker(personas, recent);
   const wrapUp = remainingSeconds <= WRAP_UP_SECONDS;
+  const invite = shouldInviteUser(state.aiTurnsSinceUser, wrapUp);
+
+  // Is someone (an AI) mid-line right now that this speaker could cut in on?
+  const last = recent.length ? recent[recent.length - 1] : null;
+  const current =
+    last && last.speaker !== "user"
+      ? personas.find((p) => p.id === last.speaker)
+      : undefined;
+
+  const plan: InterruptPlan =
+    !invite && !wrapUp && last && current && current.id !== persona.id
+      ? planInterruption({
+          current,
+          interrupter: persona,
+          currentSentenceCount: splitSentences(last.text).length,
+          totalAiTurns: state.totalAiTurns,
+          lastInterruptTurn: state.lastInterruptTurn,
+          interruptsUsed: state.interruptsUsed,
+        })
+      : NO_INTERRUPT;
+
+  const mode = invite
+    ? "inviting"
+    : plan.interrupt && plan.succeeds
+      ? "interrupting"
+      : "normal";
 
   let text: string;
   try {
@@ -201,13 +310,23 @@ const buildNextTurn = async (
       userName: session.userName,
       recent,
       wrapUp,
+      mode,
     });
   } catch (error) {
     console.error("GD reply generation failed:", error);
     throw new AppError(
-      `The AI participant couldn't respond. Please try again.${devDetail(error)}`,
+      `The AI participant couldn't respond. Please try again.${errorDetail(error)}`,
       502,
     );
+  }
+
+  const inc: Record<string, number> = { totalAiTurns: 1 };
+  const set: Record<string, number> = {};
+  if (invite) set.aiTurnsSinceUser = 0;
+  else inc.aiTurnsSinceUser = 1;
+  if (plan.interrupt) {
+    inc.interruptsUsed = 1;
+    set.lastInterruptTurn = state.totalAiTurns + 1;
   }
 
   const [message] = await Promise.all([
@@ -219,7 +338,7 @@ const buildNextTurn = async (
     }),
     GDSession.updateOne(
       { _id: session._id },
-      { $inc: { aiTurnsSinceUser: 1, totalAiTurns: 1 } },
+      Object.keys(set).length ? { $inc: inc, $set: set } : { $inc: inc },
     ),
   ]);
 
@@ -231,6 +350,8 @@ const buildNextTurn = async (
     text,
     messageId: message._id.toString(),
     wrapUp,
+    plan,
+    invitesUser: invite,
   };
 };
 
@@ -299,6 +420,7 @@ export const startSession = asyncHandler(
         personalityTrait: draft.personalityTrait,
         stance: draft.stance,
         voiceIndex: index,
+        assertiveness: draft.assertiveness,
       })),
     );
     const personas = personaDocs.map(toPersonaLite);
@@ -336,10 +458,13 @@ export const nextTurn = asyncHandler(
     turnLocks.add(sessionId);
 
     try {
-      const result = await buildNextTurn(session, {
-        aiTurnsSinceUser: session.aiTurnsSinceUser,
-        totalAiTurns: session.totalAiTurns,
-      });
+      // Fix up what the client actually heard BEFORE building the context.
+      await applyClientCorrections(
+        session,
+        readInterrupted(req.body?.interrupted),
+        [],
+      );
+      const result = await buildNextTurn(session, turnStateOf(session));
       return sendSuccess(res, result, "Next turn ready");
     } finally {
       turnLocks.delete(sessionId);
@@ -348,7 +473,7 @@ export const nextTurn = asyncHandler(
 );
 
 // ---------------------------------------------------------------------------
-// POST /api/gd/:id/message   { text } | { skipped: true }
+// POST /api/gd/:id/message   { text, interrupted?, discard? }
 //
 // Saves the user's turn AND returns the next turn in the same response, which
 // removes one full network round trip right when the user is waiting.
@@ -370,6 +495,13 @@ export const submitMessage = asyncHandler(
     if (!skipped && !text) {
       throw new AppError("Message text is required", 400);
     }
+
+    // Apply what the client heard / drop prefetched lines the user talked over.
+    await applyClientCorrections(
+      session,
+      readInterrupted(req.body.interrupted),
+      readIdList(req.body.discard),
+    );
 
     let savedMessage: {
       id: string;
@@ -412,10 +544,10 @@ export const submitMessage = asyncHandler(
     if (!turnLocks.has(sessionId)) {
       turnLocks.add(sessionId);
       try {
-        nextTurnResult = await buildNextTurn(session, {
-          aiTurnsSinceUser: 0,
-          totalAiTurns: session.totalAiTurns,
-        });
+        nextTurnResult = await buildNextTurn(
+          session,
+          turnStateOf(session, { aiTurnsSinceUser: 0 }),
+        );
       } finally {
         turnLocks.delete(sessionId);
       }
@@ -513,7 +645,7 @@ export const endSession = asyncHandler(
           // instead of completing it with no feedback.
           console.error("GD feedback generation failed:", error);
           throw new AppError(
-            `Couldn't generate your feedback right now. Please retry.${devDetail(error)}`,
+            `Couldn't generate your feedback right now. Please retry.${errorDetail(error)}`,
             502,
           );
         }
@@ -593,6 +725,7 @@ export const getSessionById = asyncHandler(
           speakerName: m.speakerName,
           text: m.text,
           timestamp: m.timestamp,
+          interrupted: m.interrupted ?? false,
         })),
         feedback: feedback ? formatFeedback(feedback) : null,
       },

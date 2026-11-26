@@ -13,6 +13,8 @@ export interface IGDSession extends Document {
   // whole transcript to decide who speaks next (cheaper + lower latency).
   aiTurnsSinceUser: number;
   totalAiTurns: number;
+  lastInterruptTurn: number; // totalAiTurns at the last AI-to-AI interruption attempt
+  interruptsUsed: number; // AI-to-AI interruption attempts so far (budget)
 }
 
 const gdSessionSchema = new Schema<IGDSession>(
@@ -56,6 +58,14 @@ const gdSessionSchema = new Schema<IGDSession>(
       default: 0,
     },
     totalAiTurns: {
+      type: Number,
+      default: 0,
+    },
+    lastInterruptTurn: {
+      type: Number,
+      default: -100,
+    },
+    interruptsUsed: {
       type: Number,
       default: 0,
     },

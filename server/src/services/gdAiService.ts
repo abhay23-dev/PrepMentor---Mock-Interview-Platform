@@ -102,21 +102,25 @@ export interface PersonaDraft {
   name: string;
   personalityTrait: string;
   stance: string;
+  assertiveness: number; // 0..1
 }
 
 // Used when the LLM call fails, or to top up if it returns fewer/duplicate
 // personas — starting a discussion should never fail because of the AI.
 export const FALLBACK_PERSONAS: PersonaDraft[] = [
-  { name: "Priya", personalityTrait: "assertive and data-driven", stance: "strongly supports the topic" },
-  { name: "Arjun", personalityTrait: "skeptical and analytical", stance: "opposes the topic and raises practical concerns" },
-  { name: "Neha", personalityTrait: "calm and balanced", stance: "neutral, weighs both sides" },
-  { name: "Rohan", personalityTrait: "energetic and example-driven", stance: "supports the topic using real-world examples" },
-  { name: "Sana", personalityTrait: "thoughtful and reserved", stance: "focuses on long-term social impact" },
-  { name: "Kabir", personalityTrait: "blunt and practical", stance: "questions whether the topic is realistic" },
+  { name: "Priya", personalityTrait: "assertive and data-driven", stance: "strongly supports the topic", assertiveness: 0.8 },
+  { name: "Arjun", personalityTrait: "skeptical and analytical", stance: "opposes the topic and raises practical concerns", assertiveness: 0.7 },
+  { name: "Neha", personalityTrait: "calm and balanced", stance: "neutral, weighs both sides", assertiveness: 0.3 },
+  { name: "Rohan", personalityTrait: "energetic and example-driven", stance: "supports the topic using real-world examples", assertiveness: 0.6 },
+  { name: "Sana", personalityTrait: "thoughtful and reserved", stance: "focuses on long-term social impact", assertiveness: 0.2 },
+  { name: "Kabir", personalityTrait: "blunt and practical", stance: "questions whether the topic is realistic", assertiveness: 0.9 },
 ];
 
 const trimTo = (value: unknown, max: number) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
+
+const clamp01 = (value: number, fallback: number) =>
+  Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : fallback;
 
 const sanitizePersona = (raw: any): PersonaDraft | null => {
   // Names are spoken aloud and shown on avatars, so keep just the first word.
@@ -126,6 +130,8 @@ const sanitizePersona = (raw: any): PersonaDraft | null => {
     name,
     personalityTrait: trimTo(raw?.personalityTrait, 80) || "thoughtful",
     stance: trimTo(raw?.stance, 120) || "neutral",
+    // The model returns 1-10; store 0..1 (default: middle).
+    assertiveness: clamp01(Number(raw?.assertiveness) / 10, 0.5),
   };
 };
 
@@ -154,11 +160,12 @@ export const generatePersonas = async (
         role: "user",
         content: `Generate ${count} distinct personas for a group discussion on the topic "${topic}".
 Rules:
-- Each persona has a realistic first name (mix of common Indian first names), a short personality trait (max 8 words), and a stance (max 15 words).${avoid}
+- Each persona has a realistic first name (mix of common Indian first names), a short personality trait (max 8 words), a stance (max 15 words), and an assertiveness from 1 (polite, lets others finish) to 10 (dominant, likes to cut in).${avoid}
+- Assertiveness must be varied: include at least one persona of 7 or more and one of 3 or less.
 - Stances must be varied: include at least one that supports the topic and one that opposes it; the rest may be neutral or focus on a specific angle.
 - Personality traits must be clearly different from each other.
 Return a JSON object in exactly this shape:
-{"personas":[{"name":"...","personalityTrait":"...","stance":"..."}]}`,
+{"personas":[{"name":"...","personalityTrait":"...","stance":"...","assertiveness":5}]}`,
       },
     ],
   });
@@ -187,6 +194,9 @@ export interface PersonaReplyParams {
   userName: string;
   recent: MessageLite[]; // chronological, already limited to the last few
   wrapUp: boolean;
+  // normal: just reply. interrupting: cut in on whoever is still speaking.
+  // inviting: ask the user directly for their view.
+  mode?: "normal" | "interrupting" | "inviting";
 }
 
 const escapeRegExp = (value: string) =>
@@ -222,8 +232,19 @@ const unavailableModels = new Set<string>();
 export const generatePersonaReply = async (
   params: PersonaReplyParams,
 ): Promise<string> => {
-  const { personaName, personalityTrait, stance, topic, userName, recent, wrapUp } =
-    params;
+  const {
+    personaName,
+    personalityTrait,
+    stance,
+    topic,
+    userName,
+    recent,
+    wrapUp,
+    mode = "normal",
+  } = params;
+  const lastSpeakerName = recent.length
+    ? recent[recent.length - 1].speakerName
+    : "";
 
   const system = [
     `You are ${personaName}, a participant in a live group discussion on "${topic}".`,
@@ -233,6 +254,12 @@ export const generatePersonaReply = async (
     "Do not repeat points already made. Do not start with your own name, do not use quotes, no stage directions.",
     wrapUp
       ? "The discussion is almost over: give a brief closing remark that wraps up your position."
+      : "",
+    mode === "interrupting"
+      ? `You are cutting in on ${lastSpeakerName}, who has not finished. Start with a very short interjection (for example "Sorry to cut in," or "Hold on," or "But wait,") and then make one sharp point in at most 25 words.`
+      : "",
+    mode === "inviting"
+      ? `Make one brief remark, then ask ${userName} directly, by name, for their opinion. At most 30 words.`
       : "",
   ]
     .filter(Boolean)

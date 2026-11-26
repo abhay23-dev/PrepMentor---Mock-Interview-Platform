@@ -6,6 +6,7 @@ export interface IGDPersona extends Document {
   personalityTrait: string;
   stance: string;
   voiceIndex: number;
+  assertiveness: number; // 0..1: how likely to interrupt / hold the floor
 }
 
 const gdPersonaSchema = new Schema<IGDPersona>({
@@ -30,6 +31,10 @@ const gdPersonaSchema = new Schema<IGDPersona>({
   voiceIndex: {
     type: Number,
     default: 0,
+  },
+  assertiveness: {
+    type: Number,
+    default: 0.5,
   },
 });
 

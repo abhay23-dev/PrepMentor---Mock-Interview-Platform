@@ -1,6 +1,7 @@
 import api from "./api";
 import type {
   GDFeedback,
+  InterruptedInfo,
   GDHistoryItem,
   GDSessionDetail,
   NextTurnResponse,
@@ -16,10 +17,13 @@ const startSession = async (data: StartGDRequest): Promise<StartGDResponse> => {
   return response.data.data;
 };
 
-const nextTurn = async (sessionId: string): Promise<NextTurnResponse> => {
+const nextTurn = async (
+  sessionId: string,
+  interrupted?: InterruptedInfo,
+): Promise<NextTurnResponse> => {
   const response = await api.post(
     `/gd/${sessionId}/next-turn`,
-    {},
+    interrupted ? { interrupted } : {},
     { timeout: 20000 },
   );
   return response.data.data;
